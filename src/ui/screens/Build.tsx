@@ -215,10 +215,6 @@ export function Build(props: { repId: string; fen?: string }) {
           cursor > 0 && <span>Unnamed position</span>
         )}
       </div>
-      {s.engineOn && <EnginePanel fen={fen} onPlay={(uci) => {
-        const p = playMove(fen, { from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] });
-        if (p) play(p);
-      }} />}
 
       <div class="controls">
         <button class="btn" aria-label="Start" disabled={cursor === 0} onClick={() => setCursor(0)}>⏮</button>
@@ -228,6 +224,16 @@ export function Build(props: { repId: string; fen?: string }) {
       </div>
 
       <div class="scroll">
+        {s.engineOn && (
+          <EnginePanel
+            fen={fen}
+            ply={cursor}
+            onPlay={(uci) => {
+              const p = playMove(fen, { from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] });
+              if (p) play(p);
+            }}
+          />
+        )}
         <MoveList entries={entries} cursor={cursor} onJump={setCursor} />
         {unsaved > 0 && (
           <div class="pad" style="margin-bottom:8px">
