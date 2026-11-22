@@ -1,0 +1,7 @@
+lichess-org/chess-openings (https://github.com/lichess-org/chess-openings)
+
+From the project README:
+"As a collection of facts, this data set is in the public domain. Considerable
+effort was spent curating and cleaning the data. Insofar as that qualifies for
+copyright, the work is released under the CC0 Public Domain Dedication."
+https://creativecommons.org/publicdomain/zero/1.0/
