@@ -95,7 +95,7 @@ textarea { width: 100%; min-height: 140px; }
 
 /* Board */
 .board-wrap { width: 100%; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; position: relative; }
-.board-wrap .cg-wrap { width: 100%; aspect-ratio: 1 / 1; height: auto; }
+.board-wrap > .cg-wrap { width: 100%; aspect-ratio: 1 / 1; height: auto; }
 .board-green cg-board { background-color: #ebecd0; background-image: repeating-conic-gradient(#739552 0 25%, #ebecd0 0 50%); background-size: 25% 25%; }
 .board-brown cg-board { background-color: #f0d9b5; background-image: repeating-conic-gradient(#b58863 0 25%, #f0d9b5 0 50%); background-size: 25% 25%; }
 .board-blue cg-board { background-color: #dee3e6; background-image: repeating-conic-gradient(#8ca2ad 0 25%, #dee3e6 0 50%); background-size: 25% 25%; }
