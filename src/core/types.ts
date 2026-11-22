@@ -54,7 +54,7 @@ export interface ReviewLog {
 
 export interface Settings {
   boardTheme: 'green' | 'brown' | 'blue';
-  pieceSet: 'cburnett' | 'merida';
+  pieceSet: 'cburnett' | 'merida' | 'chessnut';
   sound: boolean;
   theme: 'dark' | 'light';
   engineDepth: number;

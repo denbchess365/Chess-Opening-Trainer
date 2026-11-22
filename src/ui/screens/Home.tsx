@@ -1,6 +1,7 @@
 import { createRepertoire, currentStreak, meta, moves, repertoires, stats, totalDue } from '../../state/store';
 import { actionSheet, promptDialog } from '../dialogs';
 import { go } from '../router';
+import { updateReady } from '../pwa';
 
 const BACKUP_REMINDER_DAYS = 7;
 
@@ -33,6 +34,11 @@ export function Home() {
         </span>
       </div>
       <div class="scroll">
+        {updateReady.value && (
+          <div class="banner" style="cursor:pointer" onClick={() => updateReady.value?.()}>
+            ✨ A new version is ready — tap to update.
+          </div>
+        )}
         {needsBackup && (
           <div class="banner" onClick={() => go('settings')} style="cursor:pointer">
             💾 {last ? `Last backup ${Math.floor((Date.now() - last) / 86400_000)} days ago.` : 'You have never backed up.'} iOS can

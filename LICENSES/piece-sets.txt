@@ -1,0 +1,10 @@
+Piece images
+
+cburnett  — Colin M.L. Burnett, GPLv2+ (shipped inside @lichess-org/chessground)
+merida    — Armando Hernandez Marroquin, GPLv2+
+            https://www.gnu.org/licenses/gpl-2.0.txt
+chessnut  — Alexis Luengas, Apache License 2.0
+            https://github.com/LexLuengas/chessnut-pieces/blob/master/LICENSE.txt
+
+The merida and chessnut SVGs were taken from https://github.com/lichess-org/lila
+(public/piece/*), per lila's COPYING.md, and embedded in src/styles/pieces.css.

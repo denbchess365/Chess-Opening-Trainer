@@ -1,3 +1,6 @@
+import { makeBackup, parseBackup } from '../core/backup';
+import { exportPgn, parsePgn } from '../core/pgn';
+import { DB_VERSION } from '../db/schema';
 import { computed, signal } from '@preact/signals';
 import * as repo from '../db/repo';
 import { turnOf, type PlayedMove } from '../core/fen';
@@ -314,4 +317,33 @@ export async function recordReview(m: Move, grade: Grade) {
 export async function reload() {
   ready.value = false;
   await init();
+}
+
+// ---------------------------------------------------------------- import / export
+
+
+export async function importPgnText(repId: string, text: string) {
+  const r = parsePgn(text);
+  const before = moves.value.length;
+  await addLine(
+    repId,
+    r.edges.map((e) => e.played),
+    r.edges.map((e) => e.comment || undefined),
+  );
+  return { games: r.games, added: moves.value.length - before, errors: r.errors };
+}
+
+export function exportPgnText(repId: string): string {
+  const r = repertoireById(repId);
+  return exportPgn(graphOf(repId), r?.name ?? 'Repertoire');
+}
+
+export async function backupText(): Promise<string> {
+  return makeBackup(await repo.loadAll(), DB_VERSION);
+}
+
+export async function restoreBackup(text: string) {
+  const data = parseBackup(text, DB_VERSION);
+  await repo.replaceAll({ ...data, kv: { ...data.kv, initialized: true } });
+  await reload();
 }

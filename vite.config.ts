@@ -8,7 +8,7 @@ export default defineConfig({
   build: { target: 'es2020', chunkSizeWarningLimit: 1200 },
   plugins: [
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       injectRegister: false,
       manifest: {
         name: 'Repertoire Trainer',
@@ -31,6 +31,7 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         navigateFallback: 'index.html',
         cleanupOutdatedCaches: true,
+        clientsClaim: true,
       },
     }),
   ],
