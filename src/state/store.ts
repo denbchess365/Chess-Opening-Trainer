@@ -62,7 +62,8 @@ export interface RepStats {
 }
 
 export const stats = computed(() => {
-  const t = now.value;
+  // Subscribe to the minute tick, but always compare against the real clock.
+  const t = Math.max(now.value, Date.now());
   const out = new Map<string, RepStats>();
   for (const r of repertoires.value) {
     const g = graphOf(r.id);
