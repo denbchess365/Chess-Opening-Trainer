@@ -32,7 +32,11 @@ export function PositionEdit(props: { id: string; params: Record<string, string>
       return newPosition(dup.fen, { ...rest, title: dup.title ? `${dup.title} (copy)` : '' });
     }
     const fen = props.params.fen || START_FULL;
-    return newPosition(fen, { source: (props.params.source as PositionSource) || 'editor', title: props.params.title ?? '' });
+    return newPosition(fen, {
+      source: (props.params.source as PositionSource) || 'editor',
+      title: props.params.title ?? '',
+      ...(props.params.side === 'w' || props.params.side === 'b' ? { mySide: props.params.side } : {}),
+    });
   });
   const [tagInput, setTagInput] = useState('');
   const set = (patch: Partial<Position>) => setDraft({ ...draft, ...patch });

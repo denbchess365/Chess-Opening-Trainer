@@ -20,6 +20,7 @@ import { EnginePanel } from '../EnginePanel';
 import { go } from '../router';
 import { useBook } from '../useBook';
 import { PerformanceView } from '../PerformanceView';
+import { analysisFrom, playOutFrom, savePositionFrom } from '../launch';
 
 const TYPE_LABEL: Record<string, string> = {
   deviation: 'You left your repertoire',
@@ -105,6 +106,9 @@ function FindingView(props: { f: GameFinding; pos: number; total: number; onNext
   const after = f.type === 'gap' && played ? playMove(f.fen, { from: played.slice(0, 2), to: played.slice(2, 4), promotion: played[4] }) : null;
   const prepFen = after ? after.toFen : f.fen;
   const prepLine = gameLineUci(game, f.ply + (f.type === 'gap' ? 1 : 0));
+  // The position where it's my move: after their surprise, or where I deviated / was out of book.
+  const critical = prepFen;
+  const posTitle = `vs ${game.opponent} · move ${Math.floor(f.ply / 2) + 1}`;
   const shapes: DrawShape[] =
     f.type === 'deviation' ? [...arrow(played, 'red'), ...arrow(expected?.uci, 'green')] : f.type === 'gap' ? arrow(played, 'red') : arrow(played, 'blue');
 
@@ -237,6 +241,11 @@ function FindingView(props: { f: GameFinding; pos: number; total: number; onNext
             </button>
           </div>
         )}
+        <div class="pad row wrap" style="gap:8px">
+          <button class="btn grow small" onClick={() => playOutFrom(critical, game.myColor, posTitle)}>⚔︎ Play it out</button>
+          <button class="btn grow small" onClick={() => savePositionFrom(critical, 'lichess', posTitle, game.myColor)}>💾 Save position</button>
+          <button class="btn grow small" onClick={() => analysisFrom(critical, game.myColor)}>🔍 Analyse</button>
+        </div>
         <div class="pad">
           <button class="btn block ghost" onClick={props.onNext}>Skip for now ›</button>
         </div>

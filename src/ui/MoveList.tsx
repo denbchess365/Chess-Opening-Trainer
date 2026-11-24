@@ -4,8 +4,10 @@ export interface LineEntry {
 }
 
 /** Breadcrumb of the current line: `1. d4 Nf6 2. Bf4 …`; tap a move to jump to it. */
-export function MoveList(props: { entries: LineEntry[]; cursor: number; onJump: (ply: number) => void }) {
+export function MoveList(props: { entries: LineEntry[]; cursor: number; onJump: (ply: number) => void; startTurn?: 'w' | 'b' }) {
   const { entries, cursor } = props;
+  // When the line starts with Black to move, the first number is "1...".
+  const off = props.startTurn === 'b' ? 1 : 0;
   if (!entries.length)
     return (
       <div class="moves-line muted">
@@ -19,7 +21,8 @@ export function MoveList(props: { entries: LineEntry[]; cursor: number; onJump: 
       </span>
       {entries.map((e, i) => (
         <>
-          {i % 2 === 0 && <span class="num">{i / 2 + 1}.</span>}
+          {(i + off) % 2 === 0 && <span class="num">{(i + off) / 2 + 1}.</span>}
+          {i === 0 && off === 1 && <span class="num">1…</span>}
           <span
             class={`mv ${cursor === i + 1 ? 'cur' : ''} ${e.saved ? '' : 'unsaved'}`}
             onClick={() => props.onJump(i + 1)}

@@ -48,8 +48,9 @@ const fmt = (cp: number | null | undefined) => {
   return (cp > 0 ? '+' : '') + (cp / 100).toFixed(1);
 };
 
-export function PlayOut(props: { params: Record<string, string> }) {
-  const [setup, setSetup] = useState(() => setupFrom(props.params));
+/** Play-out screen. Pass `setup` + `onExit` to embed it (e.g. inside a drill, which keeps its state). */
+export function PlayOut(props: { params: Record<string, string>; setup?: PlayOutSetup; onExit?: () => void }) {
+  const [setup, setSetup] = useState<PlayOutSetup | string>(() => props.setup ?? setupFrom(props.params));
   if (typeof setup === 'string')
     return (
       <div class="screen">
@@ -60,10 +61,10 @@ export function PlayOut(props: { params: Record<string, string> }) {
         <div class="card">{setup}</div>
       </div>
     );
-  return <Game key={setup.startFen + setup.goal + setup.mySide} setup={setup} params={props.params} onSetup={setSetup} />;
+  return <Game key={setup.startFen + setup.goal + setup.mySide} setup={setup} params={props.params} onSetup={setSetup} onExit={props.onExit} />;
 }
 
-function Game(props: { setup: PlayOutSetup; params: Record<string, string>; onSetup: (s: PlayOutSetup) => void }) {
+function Game(props: { setup: PlayOutSetup; params: Record<string, string>; onSetup: (s: PlayOutSetup) => void; onExit?: () => void }) {
   const { setup } = props;
   const s = settings.value;
   const [fens, setFens] = useState<string[]>([setup.startFen]);
@@ -320,7 +321,7 @@ function Game(props: { setup: PlayOutSetup; params: Record<string, string>; onSe
   return (
     <div class="screen">
       <div class="topbar">
-        <button class="btn icon ghost" aria-label="Back" onClick={() => history.back()}>‹</button>
+        <button class="btn icon ghost" aria-label="Back" onClick={() => (props.onExit ? props.onExit() : history.back())}>‹</button>
         <h1 style="font-size:16px">{setup.title}</h1>
         <span class="small muted">{source === 'tablebase' ? 'Tablebase' : source === 'engine' ? 'Stockfish' : ''}</span>
       </div>
@@ -390,7 +391,7 @@ function Game(props: { setup: PlayOutSetup; params: Record<string, string>; onSe
               <button class="btn grow" disabled={!moves.length} onClick={() => setReviewing(moves.length)}>Review game</button>
               <button class="btn grow" onClick={restart}>Try again</button>
             </div>
-            <PlayOutExtras setup={setup} moves={moves} params={props.params} />
+            <PlayOutExtras setup={setup} moves={moves} params={props.params} onExit={props.onExit} />
           </div>
         )}
       </div>

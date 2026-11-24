@@ -2,7 +2,7 @@ import { makeBackup, parseBackup, summarize, type ParsedBackup } from '../core/b
 import { exportPgn, parsePgn } from '../core/pgn';
 import { computed, signal } from '@preact/signals';
 import * as repo from '../db/repo';
-import { ROOT, turnOf, type PlayedMove } from '../core/fen';
+import { normalizeFen, ROOT, turnOf, type PlayedMove } from '../core/fen';
 import { localDay, previousDay, uid } from '../core/ids';
 import { isDue, isMastered, newCard, review } from '../core/scheduler';
 import { completeness, drillableMoves, RepGraph, subtreeToDelete } from '../core/tree';
@@ -606,4 +606,35 @@ export async function finishRun(run: PracticeRun, opts: { grade?: Grade } = {}) 
 
 export function runsFor(positionId: string): PracticeRun[] {
   return practiceRuns.value.filter((r) => r.positionId === positionId);
+}
+
+/**
+ * Returns the hidden repertoire that holds a position's Mode B lines, creating it (and
+ * turning on "Drill lines") if needed. The tree starts at the position's FEN.
+ */
+export async function ensureLinesRepertoire(p: Position): Promise<Repertoire> {
+  const existing = p.repertoireId ? repertoireById(p.repertoireId) : undefined;
+  if (existing) {
+    if (!p.practiceModes.includes('lines')) await savePosition({ ...p, practiceModes: [...p.practiceModes, 'lines'] });
+    return existing;
+  }
+  const r: Repertoire = {
+    id: uid(),
+    name: p.title || 'Position',
+    side: p.mySide,
+    createdAt: Date.now(),
+    startFen: normalizeFen(p.fen),
+    kind: 'position',
+    positionId: p.id,
+  };
+  await repo.putRepertoire(r);
+  repertoires.value = [...repertoires.value, r];
+  await savePosition({ ...p, repertoireId: r.id, practiceModes: p.practiceModes.includes('lines') ? p.practiceModes : [...p.practiceModes, 'lines'] });
+  return r;
+}
+
+/** Finds a saved position with the same placement/side/castling/ep (clocks ignored). */
+export function findPositionByFen(fen: string): Position | undefined {
+  const key = normalizeFen(fen);
+  return positions.value.find((p) => normalizeFen(p.fen) === key);
 }

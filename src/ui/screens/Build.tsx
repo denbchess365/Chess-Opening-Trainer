@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { formatLine, playMove, ROOT, type PlayedMove } from '../../core/fen';
+import { formatLine, playMove, type PlayedMove } from '../../core/fen';
 import { findGaps } from '../../core/tree';
 import type { Move } from '../../core/types';
 import {
@@ -22,6 +22,7 @@ import { playMoveSound } from '../sound';
 import { useBook } from '../useBook';
 import { EnginePanel } from '../EnginePanel';
 import { requestAutoBackup } from '../../state/gistBackup';
+import { analysisFrom, playOutFrom, savePositionFrom } from '../launch';
 
 export function moveToPlayed(m: Move): PlayedMove {
   return { san: m.san, uci: m.uci, from: m.uci.slice(0, 2), to: m.uci.slice(2, 4), fromFen: m.fromFen, toFen: m.toFen };
@@ -31,10 +32,10 @@ export function moveToPlayed(m: Move): PlayedMove {
 const memory = new Map<string, { path: PlayedMove[]; cursor: number }>();
 
 /** Replays a comma-separated list of UCI moves from the start (used to open a position from a game). */
-function pathFromUci(line: string | undefined): PlayedMove[] | null {
+function pathFromUci(line: string | undefined, root: string): PlayedMove[] | null {
   if (!line) return null;
   const out: PlayedMove[] = [];
-  let f = ROOT;
+  let f = root;
   for (const uci of line.split(',').slice(0, 300)) {
     if (!/^[a-h][1-8][a-h][1-8][qrbn]?$/.test(uci)) return null;
     const p = playMove(f, { from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] });
@@ -49,7 +50,7 @@ export function Build(props: { repId: string; fen?: string; line?: string }) {
   const rep = repertoireById(props.repId);
   const g = graphOf(props.repId);
   const remembered = memory.get(props.repId);
-  const fromGame = pathFromUci(props.line);
+  const fromGame = pathFromUci(props.line, g.root);
   const [path, setPath] = useState<PlayedMove[]>(fromGame ?? remembered?.path ?? []);
   const [cursor, setCursor] = useState(fromGame ? fromGame.length : (remembered?.cursor ?? 0));
   const [flipped, setFlipped] = useState(false);
@@ -72,12 +73,14 @@ export function Build(props: { repId: string; fen?: string; line?: string }) {
       </div>
     );
 
-  const fen = cursor ? path[cursor - 1].toFen : ROOT;
+  const fen = cursor ? path[cursor - 1].toFen : g.root;
+  const isPositionSet = rep?.kind === 'position';
+  const startTurn = g.root.split(' ')[1] === 'b' ? 'b' : 'w';
   const lastMove: [string, string] | null = cursor ? [path[cursor - 1].from, path[cursor - 1].to] : null;
   const myTurn = g.isMyTurn(fen);
   const children = g.children(fen);
   const current = cursor ? g.findByUci(path[cursor - 1].fromFen, path[cursor - 1].uci) : undefined;
-  const opening = bk?.nameForLine([ROOT, ...path.slice(0, cursor).map((p) => p.toFen)]);
+  const opening = isPositionSet ? null : bk?.nameForLine([g.root, ...path.slice(0, cursor).map((p) => p.toFen)]);
   const gaps = findGaps(g);
   const entries = path.map((p) => ({ san: p.san, saved: !!g.findByUci(p.fromFen, p.uci) }));
   const unsaved = entries.slice(0, cursor).filter((e) => !e.saved).length;
@@ -176,6 +179,9 @@ export function Build(props: { repId: string; fen?: string; line?: string }) {
 
   function menu() {
     actionSheet(rep!.name, [
+      { label: '▶︎ Play it out from here', run: () => playOutFrom(fen, rep!.side, rep!.name) },
+      { label: '💾 Save this position', run: () => savePositionFrom(fen, 'line', '', rep!.side) },
+      { label: '🔍 Analysis board', run: () => analysisFrom(fen, rep!.side) },
       { label: '🎯 Drill from this position', run: () => go(`practice?mode=subtree&rep=${rep!.id}&fen=${encodeURIComponent(fen)}&auto=1`) },
       {
         label: settings.value.autoSave ? 'Auto-save moves: ON (tap to turn off)' : 'Auto-save moves: OFF (tap to turn on)',
@@ -240,6 +246,7 @@ export function Build(props: { repId: string; fen?: string; line?: string }) {
         <button class="btn" aria-label="Back" disabled={cursor === 0} onClick={() => setCursor(cursor - 1)}>◀</button>
         <button class="btn" aria-label="Forward" onClick={forward}>▶</button>
         <button class="btn" aria-label="End" onClick={toEnd}>⏭</button>
+        <button class="btn" aria-label="Play it out from here" title="Play it out" onClick={() => playOutFrom(fen, rep.side, rep.name)}>⚔︎</button>
       </div>
 
       <div class="scroll">
@@ -253,7 +260,7 @@ export function Build(props: { repId: string; fen?: string; line?: string }) {
             }}
           />
         )}
-        <MoveList entries={entries} cursor={cursor} onJump={setCursor} />
+        <MoveList entries={entries} cursor={cursor} onJump={setCursor} startTurn={startTurn} />
         {unsaved > 0 && (
           <div class="pad" style="margin-bottom:8px">
             <button class="btn primary block" onClick={saveLine}>
@@ -320,7 +327,7 @@ export function Build(props: { repId: string; fen?: string; line?: string }) {
                 {gaps.map((gp) => (
                   <div class="list-item" style="cursor:pointer" onClick={() => jumpToLine(gp.path)}>
                     <span class="badge orange">!</span>
-                    <span class="grow">{gp.path.length ? formatLine(gp.path.map((m) => m.san)) : 'Starting position — choose your first move'}</span>
+                    <span class="grow">{gp.path.length ? formatLine(gp.path.map((m) => m.san), startTurn) : 'Starting position — choose your first move'}</span>
                     <span class="muted">›</span>
                   </div>
                 ))}

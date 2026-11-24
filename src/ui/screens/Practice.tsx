@@ -12,6 +12,8 @@ import { go } from '../router';
 import { playBad, playGood, playMoveSound } from '../sound';
 import { useBook } from '../useBook';
 import { requestAutoBackup } from '../../state/gistBackup';
+import { chooseGoal, fullOrToast } from '../launch';
+import { PlayOut, type PlayOutSetup } from './PlayOut';
 
 const MODES: { id: PracticeMode; label: string; help: string }[] = [
   { id: 'daily', label: 'Daily practice', help: 'Due moves, capped at your daily size.' },
@@ -190,12 +192,18 @@ function Drill(props: { lines: DrillLine[]; onExit: () => void }) {
   const [results, setResults] = useState<Result[]>([]);
   const [done, setDone] = useState(false);
   const [boardFen, setBoardFen] = useState<string | null>(null); // temporary wrong-move display
+  const [playout, setPlayout] = useState<PlayOutSetup | null>(null);
+  /** Position right after my most recent answer in this line (where "Play it out" starts). */
+  const [answered, setAnswered] = useState<{ li: number; fen: string } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const bk = useBook();
 
   const line = lines[li];
   const rep = line ? repertoireById(line.repId) : undefined;
-  const fen = ply === 0 ? ROOT : line.moves[ply - 1].toFen;
+  // Lines start at their repertoire's root (standard start for openings, a custom FEN for positions).
+  const startFen = line?.moves[0]?.fromFen ?? ROOT;
+  const fen = ply === 0 ? startFen : line.moves[ply - 1].toFen;
+  const startTurn = startFen.split(' ')[1] === 'b' ? 'b' : 'w';
   const orientation = line?.side === 'b' ? 'black' : 'white';
   const reviewed = new Set(results.map((r) => r.move.id));
   const correct = results.filter((r) => r.grade !== 'again').length;
@@ -207,7 +215,7 @@ function Drill(props: { lines: DrillLine[]; onExit: () => void }) {
 
   // Drive the line forward: auto-play until the next quizzed move.
   useEffect(() => {
-    if (done || !line || phase !== 'auto') return;
+    if (done || !line || phase !== 'auto' || playout) return;
     if (ply >= line.moves.length) {
       timer.current = setTimeout(() => {
         if (li + 1 >= lines.length) setDone(true);
@@ -232,7 +240,7 @@ function Drill(props: { lines: DrillLine[]; onExit: () => void }) {
       ply === 0 ? 450 : m.isMine ? 300 : 550,
     );
     return () => clearTimeout(timer.current);
-  }, [li, ply, phase, done]);
+  }, [li, ply, phase, done, playout]);
 
   useEffect(() => () => clearTimeout(timer.current), []);
 
@@ -264,6 +272,7 @@ function Drill(props: { lines: DrillLine[]; onExit: () => void }) {
         flashFor('good');
         await grade(hinted ? 'hard' : 'good');
       }
+      setAnswered({ li, fen: p.toFen });
       setPly(ply + 1);
       setPhase('auto');
       return;
@@ -303,8 +312,18 @@ function Drill(props: { lines: DrillLine[]; onExit: () => void }) {
   }
 
   if (done || !line) return <Summary results={results} onExit={props.onExit} />;
+  if (playout) return <PlayOut params={{}} setup={playout} onExit={() => setPlayout(null)} />;
 
-  const opening = bk?.nameForLine([ROOT, ...line.moves.slice(0, ply).map((m) => m.toFen)]);
+  const playFrom = answered && answered.li === li ? answered.fen : null;
+  const startPlayout = () => {
+    if (!playFrom) return;
+    const f = fullOrToast(playFrom);
+    if (!f) return;
+    clearTimeout(timer.current);
+    chooseGoal(line.side, (goal) => setPlayout({ startFen: f, goal, mySide: line.side, title: rep?.name ?? 'Play it out' }));
+  };
+
+  const opening = rep?.kind === 'position' ? null : bk?.nameForLine([startFen, ...line.moves.slice(0, ply).map((m) => m.toFen)]);
   const comment = phase === 'auto' || phase === 'between' ? lastPlayed?.comment : '';
   const lastMove: [string, string] | null = boardFen
     ? null
@@ -344,7 +363,7 @@ function Drill(props: { lines: DrillLine[]; onExit: () => void }) {
           )}
           {phase === 'auto' && <div class="muted">Line {li + 1} of {lines.length}</div>}
           <div class="muted small" style="margin-top:4px">
-            {formatLine(line.moves.slice(0, ply).map((m) => m.san)) || 'Starting position'}
+            {formatLine(line.moves.slice(0, ply).map((m) => m.san), startTurn) || 'Starting position'}
           </div>
           {comment && <div class="small" style="margin-top:6px">💬 {comment}</div>}
           {phase === 'fix' && expected?.comment && <div class="small" style="margin-top:6px">💬 {expected.comment}</div>}
@@ -352,6 +371,11 @@ function Drill(props: { lines: DrillLine[]; onExit: () => void }) {
         <div class="controls">
           <button class="btn" disabled={phase !== 'await' || hinted} onClick={hint}>💡 Hint</button>
           <button class="btn" disabled={phase !== 'await'} onClick={showAnswer}>I don’t know — show me</button>
+        </div>
+        <div class="pad">
+          <button class="btn small block ghost" disabled={!playFrom || phase === 'fix'} onClick={startPlayout}>
+            ⚔︎ Play it out from my last answer (the drill waits)
+          </button>
         </div>
         <p class="pad muted small">Correct = Good · correct after a hint = Hard · wrong or “show me” = Again.</p>
       </div>
