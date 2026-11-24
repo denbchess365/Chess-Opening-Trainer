@@ -89,6 +89,8 @@ export type Speed = 'ultraBullet' | 'bullet' | 'blitz' | 'rapid' | 'classical' |
 
 export interface LichessGame {
   id: string;
+  /** Lowercase Lichess id of the account the game was synced for. */
+  user?: string;
   playedAt: number;
   myColor: Side;
   opponent: string;

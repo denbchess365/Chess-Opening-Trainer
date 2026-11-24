@@ -34,6 +34,10 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,wasm,png,svg,json,webmanifest}'],
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         navigateFallback: 'index.html',
+        // Only same-origin app files are precached. No runtime caching routes exist, so
+        // requests to lichess.org and api.github.com bypass the service worker entirely
+        // (network-only, never cached). Verified by the offline/cache browser test.
+        runtimeCaching: [],
         cleanupOutdatedCaches: true,
         clientsClaim: true,
       },

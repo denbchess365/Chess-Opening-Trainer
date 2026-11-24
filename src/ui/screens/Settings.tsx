@@ -21,6 +21,7 @@ import { confirmDialog, openModal, promptDialog, toast } from '../dialogs';
 import { pickTextFile, shareOrDownload, slug, stamp } from '../files';
 import { go } from '../router';
 import { GistSettings } from '../GistSettings';
+import { LichessSettings } from '../LichessSettings';
 import { listSnapshots } from '../../db/repo';
 import type { Snapshot } from '../../core/types';
 import { BackupError } from '../../core/backupSchema';
@@ -267,6 +268,8 @@ export function Settings() {
         <GistSettings />
         <StorageCard />
         <SnapshotsCard />
+
+        <LichessSettings />
 
         <div class="card">
           <h2>PGN</h2>

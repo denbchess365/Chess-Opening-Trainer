@@ -7,7 +7,9 @@ import { localDay, previousDay, uid } from '../core/ids';
 import { isDue, isMastered, newCard, review } from '../core/scheduler';
 import { completeness, drillableMoves, RepGraph, subtreeToDelete } from '../core/tree';
 import {
+  DEFAULT_LICHESS,
   DEFAULT_SETTINGS,
+  type LichessSettings,
   type CardState,
   type GameFinding,
   type Grade,
@@ -27,6 +29,8 @@ export const cards = signal<Map<string, CardState>>(new Map());
 export const settings = signal<Settings>({ ...DEFAULT_SETTINGS });
 export const meta = signal<Meta>({ streak: 0, lastPracticeDay: null, lastBackupAt: null });
 export const lichessGames = signal<LichessGame[]>([]);
+/** Lichess preferences (synced with backups). */
+export const lichessSettings = signal<LichessSettings>({ ...DEFAULT_LICHESS });
 export const findings = signal<GameFinding[]>([]);
 /** Device-local key/values (token, Gist id, sync state). Never exported. */
 export const localKv = signal<Record<string, unknown>>({});
@@ -125,6 +129,7 @@ export async function init() {
     const data = await repo.loadAll();
     settings.value = { ...DEFAULT_SETTINGS, ...((data.kv.settings as Partial<Settings>) ?? {}) };
     meta.value = { ...meta.value, ...((data.kv.meta as Partial<Meta>) ?? {}) };
+    lichessSettings.value = { ...DEFAULT_LICHESS, ...((data.kv.lichess as Partial<LichessSettings>) ?? {}) };
     repertoires.value = data.repertoires.sort((a, b) => a.createdAt - b.createdAt);
     moves.value = data.moves;
     cards.value = new Map(data.cards.map((c) => [c.moveId, c]));
@@ -187,6 +192,11 @@ export async function updateSettings(patch: Partial<Settings>) {
   settings.value = { ...settings.value, ...patch };
   applyTheme();
   await repo.putKv('settings', settings.value);
+}
+
+export async function updateLichessSettings(patch: Partial<LichessSettings>) {
+  lichessSettings.value = { ...lichessSettings.value, ...patch };
+  await repo.putKv('lichess', lichessSettings.value);
 }
 
 async function saveMeta(patch: Partial<Meta>) {

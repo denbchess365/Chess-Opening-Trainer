@@ -190,6 +190,12 @@ export function parseBackup(input: string | unknown, currentSchema = BACKUP_SCHE
       myRating: num(g.myRating) ? g.myRating : null,
       oppRating: num(g.oppRating) ? g.oppRating : null,
       analyzedAt: num(g.analyzedAt) ? g.analyzedAt : null,
+      user: str(g.user) ? g.user : undefined,
+      evals: Array.isArray(g.evals)
+        ? g.evals.map((e: any) =>
+            e && (num(e.cp) || num(e.mate)) ? { cp: num(e.cp) ? e.cp : undefined, mate: num(e.mate) ? e.mate : undefined } : null,
+          )
+        : undefined,
     });
   });
 

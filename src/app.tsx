@@ -9,10 +9,11 @@ import { Settings } from './ui/screens/Settings';
 import { Stats } from './ui/screens/Stats';
 import { unlockAudioOnGesture } from './ui/sound';
 import { installAutoBackupTriggers } from './state/gistBackup';
+import { maybeAutoSync } from './state/lichessSync';
 
 export function App() {
   useEffect(() => {
-    init();
+    init().then(maybeAutoSync);
     unlockAudioOnGesture();
     installAutoBackupTriggers();
   }, []);

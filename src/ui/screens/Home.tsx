@@ -12,6 +12,7 @@ import { actionSheet, promptDialog } from '../dialogs';
 import { go } from '../router';
 import { updateReady } from '../pwa';
 import { BackupStatusLine } from '../GistSettings';
+import { OnlineGamesCard } from '../OnlineGamesCard';
 
 export function pct(x: number) {
   return `${Math.round(x * 100)}%`;
@@ -72,6 +73,8 @@ export function Home() {
             </button>
           </div>
         </div>
+
+        <OnlineGamesCard />
 
         {repertoires.value.map((r) => {
           const s = stats.value.get(r.id);
