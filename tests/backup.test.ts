@@ -31,6 +31,9 @@ function sample(): BackupData {
       },
     ],
     findings: [],
+    positions: [],
+    collections: [],
+    practiceRuns: [],
   };
 }
 
@@ -42,6 +45,8 @@ describe('backup format', () => {
     expect(r.data.repertoires).toHaveLength(2);
     expect(r.data.lichessGames).toEqual([]);
     expect(r.data.findings).toEqual([]);
+    expect(r.data.positions).toEqual([]);
+    expect(r.data.practiceRuns).toEqual([]);
     expect(r.warnings).toEqual([]);
   });
 
@@ -103,5 +108,57 @@ describe('backup format', () => {
     expect(r.data.moves.find((m) => m.id === 'd4')!.isPrimary).toBe(false);
     expect(r.data.cards).toHaveLength(0);
     expect(r.warnings.length).toBe(2);
+  });
+});
+
+describe('backup v3: positions, collections, runs', () => {
+  const KBN = '8/8/8/4k3/8/8/8/3BNK2 w - - 0 1';
+  const withPositions = (): BackupData => ({
+    ...sample(),
+    repertoires: [
+      ...sample().repertoires,
+      { id: 'pr1', name: 'KBN line', side: 'w', createdAt: 2, kind: 'position', positionId: 'p1', startFen: '8/8/8/4k3/8/8/8/3BNK2 w - -' },
+    ],
+    collections: [{ id: 'c1', name: 'KBN mates', createdAt: 1 }],
+    positions: [
+      { id: 'p1', fen: KBN, title: 'KBN', note: 'corner', tags: ['endgame'], collectionId: 'c1', goal: 'win', mySide: 'w', practiceModes: ['playOut', 'lines'], source: 'editor', repertoireId: 'pr1', createdAt: 1 },
+    ],
+    cards: [{ moveId: 'pos:p1', repertoireId: 'positions', due: 1, stability: 1, difficulty: 5, scheduledDays: 0, learningSteps: 0, reps: 1, lapses: 0, state: 1, lastReview: 1, wrong: 0, right: 1 }],
+    practiceRuns: [{ id: 'run1', positionId: 'p1', startFen: KBN, moves: ['f1e2', 'e5d4'], result: 'fail', reason: '50-move rule — draw', success: false, hintsUsed: 1, movesTaken: 1, engineDtm: 28, finishedAt: 5 }],
+  });
+
+  it('round-trips the new tables, including play-out cards', () => {
+    const r = parseBackup(makeBackup(withPositions(), { appVersion: '3', deviceLabel: 'x' }));
+    expect(r.data.positions).toHaveLength(1);
+    expect(r.data.positions[0]).toMatchObject({ collectionId: 'c1', repertoireId: 'pr1', practiceModes: ['playOut', 'lines'] });
+    expect(r.data.collections).toHaveLength(1);
+    expect(r.data.practiceRuns[0]).toMatchObject({ positionId: 'p1', engineDtm: 28 });
+    expect(r.data.cards.map((c) => c.moveId)).toEqual(['pos:p1']);
+    expect(r.data.repertoires.find((x) => x.id === 'pr1')!.startFen).toBe('8/8/8/4k3/8/8/8/3BNK2 w - -');
+    expect(r.warnings).toEqual([]);
+  });
+
+  it('migrates a v2 file (no position tables)', () => {
+    const f = JSON.parse(makeBackup(sample(), { appVersion: '2', deviceLabel: 'x' }));
+    f.schemaVersion = 2;
+    delete f.data.positions;
+    delete f.data.collections;
+    delete f.data.practiceRuns;
+    const r = parseBackup(JSON.stringify(f));
+    expect(r.meta.schemaVersion).toBe(2);
+    expect(r.data.positions).toEqual([]);
+    expect(r.data.moves.length).toBe(sample().moves.length);
+  });
+
+  it('rejects an illegal saved position and drops orphan play-out cards', () => {
+    const bad = withPositions();
+    bad.positions[0] = { ...bad.positions[0], fen: '8/8/8/8/8/8/8/3BNK2 w - - 0 1' };
+    expect(() => parseBackup(makeBackup(bad, { appVersion: 'x', deviceLabel: 'x' }))).toThrow(/illegal position: Black has no king/);
+    const orphan = withPositions();
+    orphan.positions = [];
+    orphan.repertoires = orphan.repertoires.filter((x) => x.id !== 'pr1');
+    const r = parseBackup(makeBackup(orphan, { appVersion: 'x', deviceLabel: 'x' }));
+    expect(r.data.cards).toEqual([]);
+    expect(r.data.practiceRuns[0].positionId).toBeUndefined();
   });
 });

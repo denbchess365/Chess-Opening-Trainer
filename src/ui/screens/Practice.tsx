@@ -5,7 +5,7 @@ import { formatLine, playMove, ROOT } from '../../core/fen';
 import { buildSession, countTargets, type DrillLine, type PracticeMode, type PracticeOptions } from '../../core/practice';
 import { activeBfs } from '../../core/tree';
 import type { Move } from '../../core/types';
-import { cardFor, graphOf, recordReview, repertoireById, repertoires, settings } from '../../state/store';
+import { cardFor, graphOf, recordReview, repertoireById, repertoires, settings , openingRepertoires } from '../../state/store';
 import { Board } from '../Board';
 import { toast } from '../dialogs';
 import { go } from '../router';
@@ -77,7 +77,7 @@ function Setup(props: { opts: PracticeOptions; setOpts: (o: PracticeOptions) => 
   const lines = useMemo(() => buildSession(allReps(), cardFor, opts), [JSON.stringify(opts)]);
   const n = countTargets(lines);
   const bk = useBook();
-  const reps = repertoires.value.filter((r) => opts.side === 'both' || r.side === opts.side);
+  const reps = openingRepertoires.value.filter((r) => opts.side === 'both' || r.side === opts.side);
 
   // Named positions in the selected repertoire, for "one opening".
   const openings = useMemo(() => {

@@ -8,11 +8,11 @@ import {
   deleteMove,
   graphOf,
   repertoireById,
-  repertoires,
   setComment,
   setPrimary,
   settings,
   updateSettings,
+  openingRepertoires,
 } from '../../state/store';
 import { Board } from '../Board';
 import { actionSheet, confirmDialog, promptDialog, toast } from '../dialogs';
@@ -209,7 +209,7 @@ export function Build(props: { repId: string; fen?: string; line?: string }) {
           value={rep.id}
           onChange={(e) => go(`build/${(e.target as HTMLSelectElement).value}`)}
         >
-          {repertoires.value.map((r) => (
+          {[...openingRepertoires.value, ...(rep.kind === 'position' ? [rep] : [])].map((r) => (
             <option value={r.id}>{r.name}</option>
           ))}
         </select>

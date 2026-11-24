@@ -1,5 +1,5 @@
 import { getDb } from './schema';
-import type { CardState, GameFinding, LichessGame, Move, Repertoire, ReviewLog, Snapshot } from '../core/types';
+import type { CardState, Collection, GameFinding, LichessGame, Move, Position, PracticeRun, Repertoire, ReviewLog, Snapshot } from '../core/types';
 
 export interface AllData {
   repertoires: Repertoire[];
@@ -10,6 +10,9 @@ export interface AllData {
   kv: Record<string, unknown>;
   lichessGames: LichessGame[];
   findings: GameFinding[];
+  positions: Position[];
+  collections: Collection[];
+  practiceRuns: PracticeRun[];
 }
 
 /**
@@ -32,7 +35,7 @@ function touch() {
 
 export async function loadAll(): Promise<AllData> {
   const db = await getDb();
-  const [repertoires, moves, cards, reviewLogs, kvRows, lichessGames, findings] = await Promise.all([
+  const [repertoires, moves, cards, reviewLogs, kvRows, lichessGames, findings, positions, collections, practiceRuns] = await Promise.all([
     db.getAll('repertoires'),
     db.getAll('moves'),
     db.getAll('cards'),
@@ -40,10 +43,13 @@ export async function loadAll(): Promise<AllData> {
     db.getAll('kv'),
     db.getAll('lichessGames'),
     db.getAll('findings'),
+    db.getAll('positions'),
+    db.getAll('collections'),
+    db.getAll('practiceRuns'),
   ]);
   const kv: Record<string, unknown> = {};
   for (const r of kvRows) if (!isLocalKey(r.key)) kv[r.key] = r.value;
-  return { repertoires, moves, cards, reviewLogs, kv, lichessGames, findings };
+  return { repertoires, moves, cards, reviewLogs, kv, lichessGames, findings, positions, collections, practiceRuns };
 }
 
 /** Device-local key/values (including secrets). Never exported. */
@@ -127,7 +133,18 @@ export async function deleteRepertoire(repertoireId: string) {
  */
 export async function replaceAll(data: AllData) {
   const db = await getDb();
-  const stores = ['repertoires', 'moves', 'cards', 'reviewLogs', 'kv', 'lichessGames', 'findings'] as const;
+  const stores = [
+    'repertoires',
+    'moves',
+    'cards',
+    'reviewLogs',
+    'kv',
+    'lichessGames',
+    'findings',
+    'positions',
+    'collections',
+    'practiceRuns',
+  ] as const;
   const tx = db.transaction(stores, 'readwrite');
   const ops: Promise<unknown>[] = [];
   touch();
@@ -141,6 +158,9 @@ export async function replaceAll(data: AllData) {
     for (const l of data.reviewLogs) ops.push(tx.objectStore('reviewLogs').put(l));
     for (const g of data.lichessGames) ops.push(tx.objectStore('lichessGames').put(g));
     for (const f of data.findings) ops.push(tx.objectStore('findings').put(f));
+    for (const p of data.positions) ops.push(tx.objectStore('positions').put(p));
+    for (const c of data.collections) ops.push(tx.objectStore('collections').put(c));
+    for (const r of data.practiceRuns) ops.push(tx.objectStore('practiceRuns').put(r));
     for (const [key, value] of Object.entries(data.kv)) if (!isLocalKey(key)) ops.push(kvStore.put({ key, value }));
     await Promise.all([...ops, tx.done]);
   } catch (e) {
@@ -198,4 +218,49 @@ export async function deleteFindingsForRepertoire(repertoireId: string) {
   const tx = db.transaction('findings', 'readwrite');
   for (const f of await tx.store.getAll()) if (f.repertoireId === repertoireId) await tx.store.delete(f.id);
   await tx.done;
+}
+
+// ---------------------------------------------------------------- positions
+
+export async function putPosition(p: Position) {
+  touch();
+  await (await getDb()).put('positions', p);
+}
+
+/** Deletes a position with its play-out card, runs and (if any) its hidden line repertoire. */
+export async function deletePosition(p: Position) {
+  touch();
+  const db = await getDb();
+  const tx = db.transaction(['positions', 'cards', 'practiceRuns'], 'readwrite');
+  await tx.objectStore('positions').delete(p.id);
+  await tx.objectStore('cards').delete('pos:' + p.id);
+  const runs = tx.objectStore('practiceRuns');
+  let cur = await runs.index('positionId').openCursor(IDBKeyRange.only(p.id));
+  while (cur) {
+    await cur.delete();
+    cur = await cur.continue();
+  }
+  await tx.done;
+  if (p.repertoireId) await deleteRepertoire(p.repertoireId);
+}
+
+export async function putCollection(c: Collection) {
+  touch();
+  await (await getDb()).put('collections', c);
+}
+
+/** Deletes a collection; its positions are kept and become uncollected. */
+export async function deleteCollection(id: string) {
+  touch();
+  const db = await getDb();
+  const tx = db.transaction(['collections', 'positions'], 'readwrite');
+  await tx.objectStore('collections').delete(id);
+  for (const p of await tx.objectStore('positions').getAll())
+    if (p.collectionId === id) await tx.objectStore('positions').put({ ...p, collectionId: null });
+  await tx.done;
+}
+
+export async function putRun(r: PracticeRun) {
+  touch();
+  await (await getDb()).put('practiceRuns', r);
 }

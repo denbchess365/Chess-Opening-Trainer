@@ -14,6 +14,10 @@ import {
   type GameFinding,
   type Grade,
   type LichessGame,
+  type Collection,
+  type Position,
+  type PracticeRun,
+  positionCardId,
   type Meta,
   type Move,
   type Repertoire,
@@ -29,6 +33,9 @@ export const cards = signal<Map<string, CardState>>(new Map());
 export const settings = signal<Settings>({ ...DEFAULT_SETTINGS });
 export const meta = signal<Meta>({ streak: 0, lastPracticeDay: null, lastBackupAt: null });
 export const lichessGames = signal<LichessGame[]>([]);
+export const positions = signal<Position[]>([]);
+export const collections = signal<Collection[]>([]);
+export const practiceRuns = signal<PracticeRun[]>([]);
 /** Lichess preferences (synced with backups). */
 export const lichessSettings = signal<LichessSettings>({ ...DEFAULT_LICHESS });
 export const findings = signal<GameFinding[]>([]);
@@ -135,6 +142,9 @@ export async function init() {
     cards.value = new Map(data.cards.map((c) => [c.moveId, c]));
     lichessGames.value = data.lichessGames.sort((a, b) => b.playedAt - a.playedAt);
     findings.value = data.findings;
+    positions.value = data.positions.sort((a, b) => b.createdAt - a.createdAt);
+    collections.value = data.collections.sort((a, b) => a.name.localeCompare(b.name));
+    practiceRuns.value = data.practiceRuns.sort((a, b) => a.finishedAt - b.finishedAt);
     localKv.value = await repo.loadLocalKv();
     if (!data.kv.initialized) {
       await createRepertoire('White openings', 'w');
@@ -490,3 +500,89 @@ export const showBackupReminder = computed(() => {
 export function dismissBackupReminder() {
   return setLocal('local:reminderDismissedAt', Date.now());
 }
+
+// ---------------------------------------------------------------- positions & collections
+
+/** Opening repertoires only (position line sets are hidden from the repertoire lists). */
+export const openingRepertoires = computed(() => repertoires.value.filter((r) => r.kind !== 'position'));
+
+export function positionById(id: string): Position | undefined {
+  return positions.value.find((p) => p.id === id);
+}
+
+/** The play-out (Mode A) card of a position. New positions are due immediately. */
+export function positionCard(p: Position): CardState {
+  return cards.value.get(positionCardId(p.id)) ?? newCard(positionCardId(p.id), 'positions', p.createdAt);
+}
+
+export async function savePosition(p: Position) {
+  await repo.putPosition(p);
+  const rest = positions.value.filter((x) => x.id !== p.id);
+  positions.value = [p, ...rest].sort((a, b) => b.createdAt - a.createdAt);
+  // Keep the hidden line set's name/side in sync.
+  if (p.repertoireId) {
+    const r = repertoireById(p.repertoireId);
+    if (r && (r.name !== p.title || r.side !== p.mySide)) {
+      const next = { ...r, name: p.title || 'Position', side: p.mySide };
+      await repo.putRepertoire(next);
+      repertoires.value = repertoires.value.map((x) => (x.id === r.id ? next : x));
+    }
+  }
+  return p;
+}
+
+export function newPosition(fen: string, patch: Partial<Position> = {}): Position {
+  const turn = fen.split(' ')[1] === 'b' ? 'b' : 'w';
+  return {
+    id: uid(),
+    fen,
+    title: '',
+    note: '',
+    tags: [],
+    collectionId: null,
+    goal: 'win',
+    mySide: turn,
+    practiceModes: ['playOut'],
+    source: 'editor',
+    createdAt: Date.now(),
+    ...patch,
+  };
+}
+
+export async function removePosition(p: Position) {
+  await takeSnapshot(`Before deleting position “${p.title || p.fen.split(' ')[0]}”`);
+  await repo.deletePosition(p);
+  positions.value = positions.value.filter((x) => x.id !== p.id);
+  practiceRuns.value = practiceRuns.value.filter((r) => r.positionId !== p.id);
+  const gone = new Set([positionCardId(p.id)]);
+  if (p.repertoireId) {
+    repertoires.value = repertoires.value.filter((r) => r.id !== p.repertoireId);
+    for (const m of moves.value) if (m.repertoireId === p.repertoireId) gone.add(m.id);
+    moves.value = moves.value.filter((m) => m.repertoireId !== p.repertoireId);
+  }
+  cards.value = new Map([...cards.value].filter(([id]) => !gone.has(id)));
+}
+
+export async function createCollection(name: string): Promise<Collection> {
+  const c: Collection = { id: uid(), name: name.trim(), createdAt: Date.now() };
+  await repo.putCollection(c);
+  collections.value = [...collections.value, c].sort((a, b) => a.name.localeCompare(b.name));
+  return c;
+}
+
+export async function renameCollection(id: string, name: string) {
+  const c = collections.value.find((x) => x.id === id);
+  if (!c) return;
+  const next = { ...c, name: name.trim() };
+  await repo.putCollection(next);
+  collections.value = collections.value.map((x) => (x.id === id ? next : x)).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export async function deleteCollection(id: string) {
+  await repo.deleteCollection(id);
+  collections.value = collections.value.filter((c) => c.id !== id);
+  positions.value = positions.value.map((p) => (p.collectionId === id ? { ...p, collectionId: null } : p));
+}
+
+/** All tags in use, for filters and suggestions. */
+export const allTags = computed(() => [...new Set(positions.value.flatMap((p) => p.tags))].sort());

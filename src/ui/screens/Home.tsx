@@ -3,16 +3,17 @@ import {
   currentStreak,
   dismissBackupReminder,
   lastAnyBackup,
-  repertoires,
   showBackupReminder,
   stats,
   totalDue,
+  openingRepertoires,
 } from '../../state/store';
 import { actionSheet, promptDialog } from '../dialogs';
 import { go } from '../router';
 import { updateReady } from '../pwa';
 import { BackupStatusLine } from '../GistSettings';
 import { OnlineGamesCard } from '../OnlineGamesCard';
+import { PositionsCard } from '../PositionsCard';
 
 export function pct(x: number) {
   return `${Math.round(x * 100)}%`;
@@ -76,7 +77,7 @@ export function Home() {
 
         <OnlineGamesCard />
 
-        {repertoires.value.map((r) => {
+        {openingRepertoires.value.map((r) => {
           const s = stats.value.get(r.id);
           return (
             <div class="card" key={r.id}>
@@ -104,12 +105,14 @@ export function Home() {
           );
         })}
 
+        <PositionsCard />
+
         <div class="pad">
           <button class="btn block ghost" onClick={newRepertoire}>+ New repertoire</button>
         </div>
 
         <div class="pad row" style="margin-top:8px">
-          <button class="btn grow" onClick={() => go(`build/${repertoires.value[0]?.id ?? ''}`)}>Build</button>
+          <button class="btn grow" onClick={() => go(`build/${openingRepertoires.value[0]?.id ?? ''}`)}>Build</button>
           <button class="btn grow" onClick={() => go('practice')}>Practice</button>
           <button class="btn grow" onClick={() => go('stats')}>Stats</button>
           <button class="btn grow" onClick={() => go('settings')}>Settings</button>

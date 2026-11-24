@@ -1,13 +1,13 @@
 import { formatLine } from '../../core/fen';
 import { drillableMoves, pathTo } from '../../core/tree';
 import type { Move } from '../../core/types';
-import { cardFor, currentStreak, graphOf, repertoires, stats } from '../../state/store';
+import { cardFor, currentStreak, graphOf, stats , openingRepertoires } from '../../state/store';
 import { go } from '../router';
 import { pct } from './Home';
 
 export function Stats() {
   const missed: { m: Move; wrong: number; right: number; line: string; rep: string }[] = [];
-  for (const r of repertoires.value) {
+  for (const r of openingRepertoires.value) {
     const g = graphOf(r.id);
     for (const m of drillableMoves(g)) {
       const c = cardFor(m);
@@ -29,7 +29,7 @@ export function Stats() {
         <span class="badge grey" style="font-size:15px">🔥 {currentStreak.value}</span>
       </div>
       <div class="scroll">
-        {repertoires.value.map((r) => {
+        {openingRepertoires.value.map((r) => {
           const s = stats.value.get(r.id)!;
           return (
             <div class="card">

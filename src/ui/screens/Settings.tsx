@@ -16,6 +16,7 @@ import {
   restoreBackup,
   settings,
   updateSettings,
+  openingRepertoires,
 } from '../../state/store';
 import { confirmDialog, openModal, promptDialog, toast } from '../dialogs';
 import { pickTextFile, shareOrDownload, slug, stamp } from '../files';
@@ -169,7 +170,7 @@ function SnapshotsCard() {
 }
 
 function PgnImport(props: { close: () => void }) {
-  const [repId, setRepId] = useState(repertoires.value[0]?.id ?? '');
+  const [repId, setRepId] = useState(openingRepertoires.value[0]?.id ?? '');
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const run = async () => {
@@ -204,7 +205,7 @@ function PgnImport(props: { close: () => void }) {
       <h3>Import PGN</h3>
       <Field label="Into repertoire">
         <select value={repId} onChange={(e) => setRepId((e.target as HTMLSelectElement).value)} style="width:100%">
-          {repertoires.value.map((r) => (
+          {openingRepertoires.value.map((r) => (
             <option value={r.id}>{r.name} ({r.side === 'w' ? 'White' : 'Black'})</option>
           ))}
         </select>
@@ -276,7 +277,7 @@ export function Settings() {
           <button class="btn block" style="margin-bottom:8px" onClick={() => openModal((close) => <PgnImport close={close} />)}>
             Import PGN…
           </button>
-          {repertoires.value.map((r) => (
+          {openingRepertoires.value.map((r) => (
             <button class="btn block ghost" onClick={() => exportPgn(r.id)}>Export “{r.name}” as PGN</button>
           ))}
         </div>
@@ -321,7 +322,7 @@ export function Settings() {
 
         <div class="card">
           <h2>Repertoires</h2>
-          {repertoires.value.map((r) => (
+          {openingRepertoires.value.map((r) => (
             <div class="list-item" style="flex-wrap:wrap">
               <div class="grow" style="font-weight:600">{r.side === 'w' ? '♔' : '♚'} {r.name}</div>
               <div class="row">

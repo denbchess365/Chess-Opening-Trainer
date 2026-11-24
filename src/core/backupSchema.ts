@@ -1,9 +1,10 @@
 import { playMove, turnOf } from './fen';
-import type { CardState, GameFinding, LichessGame, Move, Repertoire, ReviewLog } from './types';
+import { checkPosition } from './positions';
+import type { CardState, Collection, GameFinding, LichessGame, Move, Position, PracticeRun, Repertoire, ReviewLog } from './types';
 
 export const BACKUP_APP = 'repertoire-trainer';
 /** Version of the backup file format (matches the IndexedDB schema version it was made from). */
-export const BACKUP_SCHEMA = 2;
+export const BACKUP_SCHEMA = 3;
 
 export interface BackupData {
   repertoires: Repertoire[];
@@ -13,6 +14,9 @@ export interface BackupData {
   kv: Record<string, unknown>;
   lichessGames: LichessGame[];
   findings: GameFinding[];
+  positions: Position[];
+  collections: Collection[];
+  practiceRuns: PracticeRun[];
 }
 
 export interface BackupFile {
@@ -54,9 +58,18 @@ export function makeBackup(
   return JSON.stringify(file);
 }
 
-export function summarize(d: Pick<BackupData, 'repertoires' | 'moves' | 'cards' | 'lichessGames'>): string {
+export function summarize(
+  d: Pick<BackupData, 'repertoires' | 'moves' | 'cards' | 'lichessGames'> & Partial<Pick<BackupData, 'positions'>>,
+): string {
   const p = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`;
-  return [p(d.repertoires.length, 'repertoire'), p(d.moves.length, 'move'), p(d.cards.length, 'card'), p(d.lichessGames.length, 'game')].join(' · ');
+  const openings = d.repertoires.filter((r) => r.kind !== 'position').length;
+  return [
+    p(openings, 'repertoire'),
+    p(d.moves.length, 'move'),
+    p(d.cards.length, 'card'),
+    ...(d.positions?.length ? [p(d.positions.length, 'position')] : []),
+    p(d.lichessGames.length, 'game'),
+  ].join(' · ');
 }
 
 // ---------------------------------------------------------------- migrations
@@ -64,6 +77,7 @@ export function summarize(d: Pick<BackupData, 'repertoires' | 'moves' | 'cards' 
 /** MIGRATE[n] upgrades backup data from format n to n + 1. Never remove old steps. */
 const MIGRATE: Record<number, (d: any) => any> = {
   1: (d) => ({ ...d, lichessGames: [], findings: [] }),
+  2: (d) => ({ ...d, positions: [], collections: [], practiceRuns: [] }),
 };
 
 // ---------------------------------------------------------------- validation
@@ -108,7 +122,7 @@ export function parseBackup(input: string | unknown, currentSchema = BACKUP_SCHE
   const warnings: string[] = [];
   const bad = (msg: string) => problems.length < 50 && problems.push(msg);
 
-  for (const k of ['repertoires', 'moves', 'cards', 'reviewLogs', 'lichessGames', 'findings'])
+  for (const k of ['repertoires', 'moves', 'cards', 'reviewLogs', 'lichessGames', 'findings', 'positions', 'collections', 'practiceRuns'])
     if (!Array.isArray(d[k])) bad(`"${k}" is missing or not a list.`);
   if (d.kv !== undefined && (typeof d.kv !== 'object' || d.kv === null || Array.isArray(d.kv))) bad('"kv" is not an object.');
   if (problems.length) throw new BackupError(problems);
@@ -119,6 +133,8 @@ export function parseBackup(input: string | unknown, currentSchema = BACKUP_SCHE
     if (!r || !str(r.id) || !r.id || !str(r.name) || (r.side !== 'w' && r.side !== 'b') || !num(r.createdAt))
       return bad(`Repertoire #${i + 1} is malformed.`);
     if (reps.has(r.id)) return bad(`Repertoire id "${r.id}" appears twice.`);
+    if (r.startFen !== undefined && (!str(r.startFen) || !FEN4.test(r.startFen))) return bad(`Repertoire “${r.name}” has an invalid start position.`);
+    if (r.kind !== undefined && r.kind !== 'opening' && r.kind !== 'position') return bad(`Repertoire “${r.name}” has an invalid kind.`);
     reps.set(r.id, r);
   });
 
@@ -150,6 +166,42 @@ export function parseBackup(input: string | unknown, currentSchema = BACKUP_SCHE
     moves.push(mv);
   });
 
+  // Collections & positions (before cards: play-out cards point at positions)
+  const collections: Collection[] = [];
+  const collIds = new Set<string>();
+  d.collections.forEach((c: any, i: number) => {
+    if (!c || !str(c.id) || !c.id || !str(c.name) || !num(c.createdAt)) return bad(`Collection #${i + 1} is malformed.`);
+    if (collIds.has(c.id)) return bad(`Collection id "${c.id}" appears twice.`);
+    collIds.add(c.id);
+    collections.push({ id: c.id, name: c.name, createdAt: c.createdAt });
+  });
+  const positions: Position[] = [];
+  const posIds = new Set<string>();
+  d.positions.forEach((p: any, i: number) => {
+    const where = `Position #${i + 1}${p && str(p.title) && p.title ? ` (“${p.title}”)` : ''}`;
+    if (!p || !str(p.id) || !p.id || !str(p.fen) || !num(p.createdAt)) return bad(`${where} is malformed.`);
+    if (posIds.has(p.id)) return bad(`${where}: id appears twice.`);
+    const chk = checkPosition(p.fen);
+    if (!chk.ok) return bad(`${where} has an illegal position: ${chk.errors[0]}`);
+    if (!['win', 'draw', 'bestMove'].includes(p.goal) || (p.mySide !== 'w' && p.mySide !== 'b')) return bad(`${where} has an invalid goal or side.`);
+    const modes = Array.isArray(p.practiceModes) ? p.practiceModes.filter((m: unknown) => m === 'playOut' || m === 'lines') : [];
+    posIds.add(p.id);
+    positions.push({
+      id: p.id,
+      fen: chk.fen,
+      title: str(p.title) ? p.title : '',
+      note: str(p.note) ? p.note : '',
+      tags: Array.isArray(p.tags) ? p.tags.filter(str).slice(0, 30) : [],
+      collectionId: str(p.collectionId) && collIds.has(p.collectionId) ? p.collectionId : null,
+      goal: p.goal,
+      mySide: p.mySide,
+      practiceModes: modes,
+      source: ['editor', 'fen', 'pgn', 'lichess', 'line', 'playout'].includes(p.source) ? p.source : 'editor',
+      repertoireId: str(p.repertoireId) && reps.has(p.repertoireId) ? p.repertoireId : undefined,
+      createdAt: p.createdAt,
+    });
+  });
+
   // Cards
   const cards: CardState[] = [];
   let orphanCards = 0;
@@ -158,7 +210,8 @@ export function parseBackup(input: string | unknown, currentSchema = BACKUP_SCHE
     for (const k of ['due', 'stability', 'difficulty', 'scheduledDays', 'reps', 'lapses', 'state'])
       if (!num(c[k])) return bad(`Card #${i + 1} has an invalid "${k}".`);
     if (c.lastReview !== null && c.lastReview !== undefined && !num(c.lastReview)) return bad(`Card #${i + 1} has an invalid "lastReview".`);
-    if (!moveIds.has(c.moveId)) return void orphanCards++;
+    const isPosCard = c.moveId.startsWith('pos:');
+    if (isPosCard ? !posIds.has(c.moveId.slice(4)) : !moveIds.has(c.moveId)) return void orphanCards++;
     cards.push({ learningSteps: 0, wrong: 0, right: 0, lastReview: null, ...c });
   });
   if (orphanCards) warnings.push(`Dropped ${orphanCards} practice card(s) for moves that no longer exist.`);
@@ -211,13 +264,27 @@ export function parseBackup(input: string | unknown, currentSchema = BACKUP_SCHE
     findings.push({ createdAt: 0, ...x });
   });
 
+  // Practice runs (history; a run whose position was deleted is kept without the link)
+  const practiceRuns: PracticeRun[] = [];
+  d.practiceRuns.forEach((r: any, i: number) => {
+    if (!r || !str(r.id) || !str(r.startFen) || !Array.isArray(r.moves) || !r.moves.every((m: unknown) => str(m) && UCI.test(m as string)))
+      return bad(`Practice run #${i + 1} is malformed.`);
+    if (!num(r.hintsUsed) || !num(r.movesTaken) || !num(r.finishedAt) || !str(r.result)) return bad(`Practice run #${i + 1} is malformed.`);
+    practiceRuns.push({
+      ...r,
+      positionId: str(r.positionId) && posIds.has(r.positionId) ? r.positionId : undefined,
+      reason: str(r.reason) ? r.reason : '',
+      success: !!r.success,
+    });
+  });
+
   if (problems.length) throw new BackupError(problems);
 
   const kv: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(d.kv ?? {})) if (!isLocalKey(k)) kv[k] = v;
 
   return {
-    data: { repertoires: [...reps.values()], moves, cards, reviewLogs, kv, lichessGames, findings },
+    data: { repertoires: [...reps.values()], moves, cards, reviewLogs, kv, lichessGames, findings, positions, collections, practiceRuns },
     meta: {
       schemaVersion: f.schemaVersion,
       appVersion: str(f.appVersion) ? f.appVersion : 'unknown',

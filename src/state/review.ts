@@ -14,12 +14,12 @@ import {
   lichessGames,
   lichessSettings,
   recordReview,
-  repertoires,
+  openingRepertoires,
   setPrimary,
 } from './store';
 
 function repsForAnalysis() {
-  return repertoires.value.map((r) => ({ id: r.id, side: r.side, graph: graphOf(r.id) }));
+  return openingRepertoires.value.map((r) => ({ id: r.id, side: r.side, graph: graphOf(r.id) }));
 }
 
 /** Compares games with the current repertoires and stores one finding per game. */

@@ -1,9 +1,9 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import type { CardState, GameFinding, LichessGame, Move, Repertoire, ReviewLog, Snapshot } from '../core/types';
+import type { CardState, Collection, GameFinding, LichessGame, Move, Position, PracticeRun, Repertoire, ReviewLog, Snapshot } from '../core/types';
 
 export const DB_NAME = 'repertoire-trainer';
 /** Bump when the object stores change, and add a step to MIGRATIONS. Never remove old steps. */
-export const DB_VERSION = 2;
+export const DB_VERSION = 3;
 
 export interface KV {
   key: string;
@@ -19,6 +19,9 @@ export interface TrainerDB extends DBSchema {
   lichessGames: { key: string; value: LichessGame; indexes: { playedAt: number } };
   findings: { key: string; value: GameFinding; indexes: { gameId: string; status: string } };
   snapshots: { key: number; value: Snapshot };
+  positions: { key: string; value: Position; indexes: { collectionId: string } };
+  collections: { key: string; value: Collection };
+  practiceRuns: { key: string; value: PracticeRun; indexes: { positionId: string } };
 }
 
 type Upgrade = (db: IDBPDatabase<TrainerDB>) => void;
@@ -45,6 +48,14 @@ const MIGRATIONS: Upgrade[] = [
     findings.createIndex('gameId', 'gameId');
     findings.createIndex('status', 'status');
     db.createObjectStore('snapshots', { keyPath: 'id', autoIncrement: true });
+  },
+  // 2 -> 3: custom positions & endgame training
+  (db) => {
+    const pos = db.createObjectStore('positions', { keyPath: 'id' });
+    pos.createIndex('collectionId', 'collectionId');
+    db.createObjectStore('collections', { keyPath: 'id' });
+    const runs = db.createObjectStore('practiceRuns', { keyPath: 'id' });
+    runs.createIndex('positionId', 'positionId');
   },
 ];
 

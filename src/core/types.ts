@@ -5,6 +5,11 @@ export interface Repertoire {
   name: string;
   side: Side;
   createdAt: number;
+  /** Normalized FEN the tree starts from (default: the standard start position). */
+  startFen?: string;
+  /** 'position' = hidden line set belonging to a saved position (Mode B). */
+  kind?: 'opening' | 'position';
+  positionId?: string;
 }
 
 /** An edge in the repertoire graph. Positions (nodes) are implied by normalized FENs. */
@@ -63,6 +68,17 @@ export interface Settings {
   engineOn: boolean;
   dailySize: number;
   autoSave: boolean;
+  /** Include saved positions in Daily practice. */
+  positionsInDaily: boolean;
+  /** Share of the daily size given to positions (0..1). */
+  positionsRatio: number;
+  /** Move-quality feedback during play-outs. */
+  playoutFeedback: 'immediate' | 'end' | 'off';
+  playoutFeedbackDepth: number;
+  /** Engine depth for the defending side in play-outs (raised automatically with few pieces). */
+  defenderDepth: number;
+  /** Use the Lichess tablebase (≤ 7 pieces) when online. */
+  useTablebase: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -75,6 +91,12 @@ export const DEFAULT_SETTINGS: Settings = {
   engineOn: false,
   dailySize: 15,
   autoSave: true,
+  positionsInDaily: true,
+  positionsRatio: 0.2,
+  playoutFeedback: 'immediate',
+  playoutFeedbackDepth: 12,
+  defenderDepth: 18,
+  useTablebase: true,
 };
 
 export interface Meta {
@@ -163,3 +185,59 @@ export interface Snapshot {
   json: string;
   summary: string;
 }
+
+// ---------------------------------------------------------------- v3: positions & endgame training
+
+export type PositionGoal = 'win' | 'draw' | 'bestMove';
+export type PracticeKind = 'playOut' | 'lines';
+export type PositionSource = 'editor' | 'fen' | 'pgn' | 'lichess' | 'line' | 'playout';
+
+export interface Position {
+  id: string;
+  /** Full FEN (clocks kept: the halfmove clock matters for the 50-move rule). */
+  fen: string;
+  title: string;
+  note: string;
+  tags: string[];
+  collectionId: string | null;
+  goal: PositionGoal;
+  mySide: Side;
+  practiceModes: PracticeKind[];
+  source: PositionSource;
+  /** Hidden repertoire holding this position's Mode B lines (created on demand). */
+  repertoireId?: string;
+  createdAt: number;
+}
+
+export interface Collection {
+  id: string;
+  name: string;
+  createdAt: number;
+}
+
+export type RunResult = 'win' | 'draw' | 'loss' | 'fail' | 'gaveUp' | 'solved' | 'wrong';
+
+export interface PracticeRun {
+  id: string;
+  positionId?: string;
+  startFen: string;
+  /** All moves of the game in UCI, both sides, from startFen. */
+  moves: string[];
+  result: RunResult;
+  /** Why it ended, e.g. "Checkmate", "Stalemate!", "50-move rule — draw". */
+  reason: string;
+  success: boolean;
+  hintsUsed: number;
+  /** Number of my moves. */
+  movesTaken: number;
+  /** Engine's (or tablebase's) mate distance in moves from the start, when known. */
+  engineDtm?: number;
+  /** Eval notes per ply (from my point of view, centipawns; mate = ±10000∓n). */
+  evals?: (number | null)[];
+  grade?: 'again' | 'hard' | 'good';
+  finishedAt: number;
+}
+
+export const POS_CARD_PREFIX = 'pos:';
+/** Card key of a saved position's Mode A (play it out) card. */
+export const positionCardId = (positionId: string) => POS_CARD_PREFIX + positionId;

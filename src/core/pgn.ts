@@ -1,3 +1,4 @@
+import { Chess } from 'chess.js';
 import { normalizeFen, playMove, ROOT, type PlayedMove } from './fen';
 import type { RepGraph } from './tree';
 import type { Move } from './types';
@@ -240,4 +241,35 @@ function wrap(text: string, width = 80): string {
   }
   if (line) lines.push(line);
   return lines.join('\n');
+}
+
+export interface Mainline {
+  /** Full FEN before the first move. */
+  startFen: string;
+  sans: string[];
+  /** Full FEN after each ply (same length as sans). */
+  fens: string[];
+  headers: Record<string, string>;
+}
+
+/**
+ * Main line of the FIRST game in a PGN (variations ignored), with full FENs so a
+ * position can be picked at any move. Supports [SetUp]/[FEN] starts. Throws a readable error.
+ */
+export function pgnMainline(text: string): Mainline {
+  const first = text.trim().split(/\n\s*\n(?=\s*\[)/).find((g) => /\S/.test(g.replace(/\[[^\]]*\]/g, ''))) ?? text;
+  const c = new Chess();
+  try {
+    c.loadPgn(first);
+  } catch (e) {
+    throw new Error(`Couldn’t read this PGN: ${(e as Error).message}`);
+  }
+  const hist = c.history({ verbose: true });
+  const headers = c.getHeaders() as Record<string, string>;
+  return {
+    startFen: hist.length ? hist[0].before : c.fen(),
+    sans: hist.map((m) => m.san),
+    fens: hist.map((m) => m.after),
+    headers,
+  };
 }
