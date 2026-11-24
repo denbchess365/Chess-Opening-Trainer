@@ -117,6 +117,22 @@ export function LichessSettings() {
           ))}
         </div>
       </div>
+      <div class="field">
+        <label>Engine check of your mistakes (uses Lichess analysis when the game has it)</label>
+        <div class="chips">
+          {[true, false].map((v) => (
+            <button class={`chip ${s.engineCheck === v ? 'on' : ''}`} onClick={() => updateLichessSettings({ engineCheck: v })}>
+              {v ? 'On' : 'Off'}
+            </button>
+          ))}
+          {s.engineCheck &&
+            [12, 14, 16, 18].map((d) => (
+              <button class={`chip ${s.engineDepth === d ? 'on' : ''}`} onClick={() => updateLichessSettings({ engineDepth: d })}>
+                depth {d}
+              </button>
+            ))}
+        </div>
+      </div>
       <p class="small muted">
         {mine} game{mine === 1 ? '' : 's'} stored
         {st.lastSyncAt ? ` · last sync ${relTime(st.lastSyncAt)}` : ''}

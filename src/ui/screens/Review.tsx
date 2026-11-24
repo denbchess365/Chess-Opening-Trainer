@@ -201,6 +201,13 @@ function FindingView(props: { f: GameFinding; pos: number; total: number; onNext
                 <>
                   Your repertoire has no move here. You played <b>{f.playedSan}</b>
                   {f.severity ? ` (${f.severity === 'ok' ? 'fine' : f.severity})` : ''}.
+                  {f.evalBest !== undefined && f.evalPlayed !== undefined && (
+                    <span class="small muted">
+                      {' '}
+                      Eval {fmtEval(f.evalPlayed)} vs best {fmtEval(f.evalBest)}
+                      {f.bestSan ? ` (${f.bestSan})` : ''}.
+                    </span>
+                  )}
                 </>
               )}
             </p>

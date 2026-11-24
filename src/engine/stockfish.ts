@@ -16,7 +16,18 @@ export interface AnalysisJob {
   movetimeMs?: number;
   multiPv: number;
   onUpdate: (lines: EngineLine[], depth: number) => void;
-  onDone?: () => void;
+  /** Always called exactly once: complete = false if the search was stopped or replaced. */
+  onDone?: (complete: boolean) => void;
+  /** @internal */
+  stopped?: boolean;
+  /** @internal */
+  finished?: boolean;
+}
+
+function finish(job: AnalysisJob | null, complete: boolean) {
+  if (!job || job.finished) return;
+  job.finished = true;
+  job.onDone?.(complete && !job.stopped);
 }
 
 /** Parses one UCI `info` line. Scores are converted to White's point of view. */
@@ -50,6 +61,8 @@ class Engine {
   private ready: Promise<void> | null = null;
   private searching = false;
   private current: AnalysisJob | null = null;
+  /** The job the engine is actually searching (kept even after stop() so it can be finished). */
+  private searchingJob: AnalysisJob | null = null;
   private pending: AnalysisJob | null = null;
   private lines = new Map<number, EngineLine>();
   private listeners: ((l: string) => void)[] = [];
@@ -95,7 +108,8 @@ class Engine {
     const job = this.current;
     if (line.startsWith('bestmove')) {
       this.searching = false;
-      if (job && job === this.current) job.onDone?.();
+      finish(this.searchingJob, true);
+      this.searchingJob = null;
       this.current = null;
       if (this.pending) {
         const next = this.pending;
@@ -118,6 +132,7 @@ class Engine {
 
   private go(job: AnalysisJob) {
     this.current = job;
+    this.searchingJob = job;
     this.lines.clear();
     this.searching = true;
     this.send('ucinewgame');
@@ -129,15 +144,35 @@ class Engine {
   async analyze(job: AnalysisJob) {
     await this.start();
     if (this.searching) {
+      finish(this.pending, false);
       this.pending = job;
+      if (this.searchingJob) this.searchingJob.stopped = true;
       this.send('stop');
     } else this.go(job);
   }
 
   stop() {
+    finish(this.pending, false);
     this.pending = null;
-    if (this.searching) this.send('stop');
+    if (this.searching) {
+      if (this.searchingJob) this.searchingJob.stopped = true;
+      this.send('stop');
+    }
     this.current = null;
+  }
+
+  /** Evaluates one position (MultiPV 1). Resolves with the final line and whether the search completed. */
+  evaluate(fen: string, depth: number): Promise<{ line: EngineLine | null; complete: boolean }> {
+    return new Promise((resolve) => {
+      let last: EngineLine | null = null;
+      this.analyze({
+        fen,
+        depth,
+        multiPv: 1,
+        onUpdate: (l) => (last = l[0] ?? last),
+        onDone: (complete) => resolve({ line: last, complete }),
+      }).catch(() => resolve({ line: null, complete: false }));
+    });
   }
 
   /** Waits for a best move (used by the offline smoke test). */

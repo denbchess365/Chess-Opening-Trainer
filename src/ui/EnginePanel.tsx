@@ -3,6 +3,7 @@ import { Chess } from 'chess.js';
 import { formatLine, fullFen, turnOf } from '../core/fen';
 import { engine, formatScore, whiteShare, type EngineLine } from '../engine/stockfish';
 import { settings } from '../state/store';
+import { engineUsers } from '../engine/evalQueue';
 
 function pvToSan(fen: string, pv: string[], max = 8): string[] {
   const c = new Chess(fullFen(fen));
@@ -23,6 +24,13 @@ export function EnginePanel(props: { fen: string; ply: number; onPlay: (uci: str
   const [depth, setDepth] = useState(0);
   const [status, setStatus] = useState('Starting engine…');
   const s = settings.value;
+
+  useEffect(() => {
+    engineUsers.value++;
+    return () => {
+      engineUsers.value--;
+    };
+  }, []);
 
   useEffect(() => {
     setLines([]);

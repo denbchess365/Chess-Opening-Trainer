@@ -4,6 +4,7 @@ import { playMove } from '../core/fen';
 import { analyzeGame, mergeFinding } from '../core/review';
 import type { FindingStatus, GameFinding, LichessGame, Move } from '../core/types';
 import { onGamesSynced } from './lichessSync';
+import { runQueue, setupEvalQueue } from '../engine/evalQueue';
 import {
   addMove,
   cardFor,
@@ -43,7 +44,14 @@ export async function analyzeGames(games: LichessGame[]) {
   return changed.length;
 }
 
-onGamesSynced((games) => analyzeGames(games).then(() => {}));
+onGamesSynced((games) => analyzeGames(games).then(() => runQueue()));
+
+setupEvalQueue({
+  candidates: () => toReview.value,
+  gameOf: (f) => gameOf(f),
+  update: (f, patch) => updateFinding(f, patch),
+  settings: () => lichessSettings.value,
+});
 
 /** Re-checks every stored game against the repertoire as it is now (decisions are kept). */
 export function reanalyzeAll() {
@@ -147,7 +155,9 @@ export function gameLineUci(game: LichessGame, ply: number): string[] {
 }
 
 /** Analyses stored games that haven't been compared yet (e.g. synced before an update). */
-export function analyzePending() {
+export async function analyzePending() {
   const pending = lichessGames.value.filter((g) => !g.analyzedAt);
-  return pending.length ? analyzeGames(pending) : Promise.resolve(0);
+  const n = pending.length ? await analyzeGames(pending) : 0;
+  runQueue();
+  return n;
 }
