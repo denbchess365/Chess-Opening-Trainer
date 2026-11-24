@@ -8,11 +8,13 @@ import { Practice } from './ui/screens/Practice';
 import { Settings } from './ui/screens/Settings';
 import { Stats } from './ui/screens/Stats';
 import { unlockAudioOnGesture } from './ui/sound';
+import { installAutoBackupTriggers } from './state/gistBackup';
 
 export function App() {
   useEffect(() => {
     init();
     unlockAudioOnGesture();
+    installAutoBackupTriggers();
   }, []);
 
   if (loadError.value)

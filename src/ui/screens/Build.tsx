@@ -22,6 +22,7 @@ import { go } from '../router';
 import { playMoveSound } from '../sound';
 import { useBook } from '../useBook';
 import { EnginePanel } from '../EnginePanel';
+import { requestAutoBackup } from '../../state/gistBackup';
 
 export function moveToPlayed(m: Move): PlayedMove {
   return { san: m.san, uci: m.uci, from: m.uci.slice(0, 2), to: m.uci.slice(2, 4), fromFen: m.fromFen, toFen: m.toFen };
@@ -44,6 +45,7 @@ export function Build(props: { repId: string; fen?: string }) {
   useEffect(() => {
     memory.set(props.repId, { path, cursor });
   }, [path, cursor, props.repId]);
+  useEffect(() => () => requestAutoBackup(), []); // end of a build session
 
   if (!rep)
     return (

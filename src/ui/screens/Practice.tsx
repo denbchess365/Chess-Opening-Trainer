@@ -11,6 +11,7 @@ import { toast } from '../dialogs';
 import { go } from '../router';
 import { playBad, playGood, playMoveSound } from '../sound';
 import { useBook } from '../useBook';
+import { requestAutoBackup } from '../../state/gistBackup';
 
 const MODES: { id: PracticeMode; label: string; help: string }[] = [
   { id: 'daily', label: 'Daily practice', help: 'Due moves, capped at your daily size.' },
@@ -360,6 +361,7 @@ function Drill(props: { lines: DrillLine[]; onExit: () => void }) {
 
 function Summary(props: { results: Result[]; onExit: () => void }) {
   const { results } = props;
+  useEffect(() => requestAutoBackup(), []); // end of a practice session
   const correct = results.filter((r) => r.grade !== 'again').length;
   const missed = results.filter((r) => r.grade === 'again');
   const pct = results.length ? Math.round((correct / results.length) * 100) : 0;

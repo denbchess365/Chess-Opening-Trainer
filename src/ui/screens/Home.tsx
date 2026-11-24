@@ -11,6 +11,7 @@ import {
 import { actionSheet, promptDialog } from '../dialogs';
 import { go } from '../router';
 import { updateReady } from '../pwa';
+import { BackupStatusLine } from '../GistSettings';
 
 export function pct(x: number) {
   return `${Math.round(x * 100)}%`;
@@ -55,6 +56,9 @@ export function Home() {
           </div>
         )}
 
+        <div class="pad" style="margin-top:4px">
+          <BackupStatusLine compact />
+        </div>
         <div class="card">
           <h2>Daily tasks</h2>
           <div class="row">

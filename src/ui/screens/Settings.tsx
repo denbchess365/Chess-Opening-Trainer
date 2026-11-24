@@ -20,6 +20,7 @@ import {
 import { confirmDialog, openModal, promptDialog, toast } from '../dialogs';
 import { pickTextFile, shareOrDownload, slug, stamp } from '../files';
 import { go } from '../router';
+import { GistSettings } from '../GistSettings';
 import { listSnapshots } from '../../db/repo';
 import type { Snapshot } from '../../core/types';
 import { BackupError } from '../../core/backupSchema';
@@ -263,6 +264,7 @@ export function Settings() {
             file first; if anything is wrong, nothing changes.
           </p>
         </div>
+        <GistSettings />
         <StorageCard />
         <SnapshotsCard />
 
