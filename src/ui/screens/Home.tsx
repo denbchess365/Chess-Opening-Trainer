@@ -6,6 +6,8 @@ import {
   showBackupReminder,
   stats,
   totalDue,
+  positionsDue,
+  settings,
   openingRepertoires,
 } from '../../state/store';
 import { actionSheet, promptDialog } from '../dialogs';
@@ -29,7 +31,9 @@ async function newRepertoire() {
 }
 
 export function Home() {
-  const due = totalDue.value;
+  const openDue = totalDue.value;
+  const pos = settings.value.positionsInDaily ? positionsDue.value.total : 0;
+  const due = openDue + pos;
   const streak = currentStreak.value;
   const last = lastAnyBackup.value;
 
@@ -66,7 +70,13 @@ export function Home() {
           <div class="row">
             <div class="grow">
               <div style="font-weight:600">Practice moves</div>
-              <div class="muted small">{due ? `${due} move${due === 1 ? '' : 's'} due` : 'Nothing due — nice!'}</div>
+              <div class="muted small">
+                {due
+                  ? [openDue ? `${openDue} move${openDue === 1 ? '' : 's'} due` : '', pos ? `${pos} position item${pos === 1 ? '' : 's'} due` : '']
+                      .filter(Boolean)
+                      .join(' · ')
+                  : 'Nothing due — nice!'}
+              </div>
             </div>
             {due > 0 && <span class="badge orange">{due}</span>}
             <button class="btn primary" onClick={() => go('practice?mode=daily&auto=1')} disabled={!due}>

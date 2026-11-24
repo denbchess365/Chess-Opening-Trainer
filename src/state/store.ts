@@ -116,10 +116,23 @@ export const stats = computed(() => {
   return out;
 });
 
+/** Due opening moves (position line sets are counted under positionsDue). */
 export const totalDue = computed(() => {
   let n = 0;
-  for (const s of stats.value.values()) n += s.due;
+  for (const r of repertoires.value) if (r.kind !== 'position') n += stats.value.get(r.id)?.due ?? 0;
   return n;
+});
+
+/** Due position items: play-out cards plus moves in position line sets. */
+export const positionsDue = computed(() => {
+  const t = Math.max(now.value, Date.now());
+  let playouts = 0;
+  let lineMoves = 0;
+  for (const p of positions.value) {
+    if (p.practiceModes.includes('playOut') && isDue(positionCard(p), t)) playouts++;
+    if (p.practiceModes.includes('lines') && p.repertoireId) lineMoves += stats.value.get(p.repertoireId)?.due ?? 0;
+  }
+  return { playouts, lineMoves, total: playouts + lineMoves };
 });
 
 export const currentStreak = computed(() => {

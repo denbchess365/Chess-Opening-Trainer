@@ -13,6 +13,7 @@ import { PositionEdit } from './ui/screens/PositionEdit';
 import { PlayOut } from './ui/screens/PlayOut';
 import { Analysis } from './ui/screens/Analysis';
 import { PositionLines } from './ui/screens/PositionLines';
+import { PositionPractice } from './ui/screens/PositionPractice';
 import { unlockAudioOnGesture } from './ui/sound';
 import { installAutoBackupTriggers } from './state/gistBackup';
 import { maybeAutoSync } from './state/lichessSync';
@@ -66,6 +67,9 @@ export function App() {
       break;
     case 'position-lines':
       screen = <PositionLines key={location.hash} id={r.params.id ?? ''} />;
+      break;
+    case 'position-practice':
+      screen = <PositionPractice key={location.hash} params={r.params} />;
       break;
     case 'stats':
       screen = <Stats />;

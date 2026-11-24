@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { DrawShape } from '@lichess-org/chessground/draw';
 import type { Key } from '@lichess-org/chessground/types';
 import { formatLine, playMove, ROOT } from '../../core/fen';
-import { buildSession, countTargets, type DrillLine, type PracticeMode, type PracticeOptions } from '../../core/practice';
+import { buildSession, countTargets, planDaily, type DrillLine, type PracticeMode, type PracticeOptions } from '../../core/practice';
 import { activeBfs } from '../../core/tree';
 import type { Move } from '../../core/types';
-import { cardFor, graphOf, recordReview, repertoireById, repertoires, settings , openingRepertoires } from '../../state/store';
+import { cardFor, graphOf, openingRepertoires, positionById, positionCard, positions, recordReview, repertoireById, repertoires, settings } from '../../state/store';
 import { Board } from '../Board';
 import { toast } from '../dialogs';
 import { go } from '../router';
@@ -34,30 +34,67 @@ function optionsFrom(params: Record<string, string>): PracticeOptions {
   };
 }
 
-function allReps() {
-  return repertoires.value.map((rep) => ({ rep, graph: graphOf(rep.id) }));
+/** Opening repertoires, plus a position line set when it is explicitly selected. */
+function allReps(repId?: string) {
+  return repertoires.value
+    .filter((r) => r.kind !== 'position' || r.id === repId)
+    .map((rep) => ({ rep, graph: graphOf(rep.id) }));
+}
+
+export interface Session {
+  lines: DrillLine[];
+  playouts: string[];
+}
+
+/** Builds a session. Daily practice mixes in due positions (Settings → Positions). */
+export function sessionFor(opts: PracticeOptions): Session {
+  if (opts.mode === 'daily' && !opts.repId) {
+    const s = settings.value;
+    const posReps = repertoires.value
+      .filter((r) => r.kind === 'position' && positionById(r.positionId ?? '')?.practiceModes.includes('lines'))
+      .map((rep) => ({ rep, graph: graphOf(rep.id) }));
+    const playouts = positions.value
+      .filter((p) => p.practiceModes.includes('playOut'))
+      .map((p) => ({ positionId: p.id, card: positionCard(p), side: p.mySide }));
+    const plan = planDaily(allReps(), posReps, cardFor, playouts, {
+      dailySize: s.dailySize,
+      includePositions: s.positionsInDaily,
+      ratio: s.positionsRatio,
+      side: opts.side,
+    });
+    return { lines: plan.lines, playouts: plan.playouts };
+  }
+  return { lines: buildSession(allReps(opts.repId), cardFor, opts), playouts: [] };
+}
+
+/** Plays the given positions one after another, then returns Home (or `doneTo`). */
+export function startPlayouts(ids: string[], doneTo = '') {
+  if (ids.length) go(`playout?pos=${ids[0]}&queue=${ids.slice(1).join(',')}&done=${encodeURIComponent(doneTo)}&t=${Date.now()}`);
+  else go(doneTo);
 }
 
 export function Practice(props: { params?: Record<string, string> }) {
   const params = props.params ?? {};
   const [opts, setOpts] = useState<PracticeOptions>(() => optionsFrom(params));
-  const [lines, setLines] = useState<DrillLine[] | null>(() =>
-    params.auto ? buildSession(allReps(), cardFor, optionsFrom(params)) : null,
-  );
+  const [session, setSession] = useState<Session | null>(() => (params.auto ? sessionFor(optionsFrom(params)) : null));
 
-  if (lines) {
-    if (!lines.length)
+  if (session) {
+    if (!session.lines.length && !session.playouts.length)
       return (
         <Shell title="Practice">
           <div class="card">
             <p>Nothing to practice with these settings. 🎉</p>
-            <button class="btn block" onClick={() => setLines(null)}>Change settings</button>
+            <button class="btn block" onClick={() => setSession(null)}>Change settings</button>
           </div>
         </Shell>
       );
-    return <Drill lines={lines} onExit={() => go('')} />;
+    if (!session.lines.length) {
+      startPlayouts(session.playouts);
+      return <div class="screen" />;
+    }
+    return <Drill lines={session.lines} onExit={() => go('')} playouts={session.playouts} />;
   }
-  return <Setup opts={opts} setOpts={setOpts} onStart={(l) => setLines(l)} />;
+  return <Setup opts={opts} setOpts={setOpts} onStart={(sess) => setSession(sess)} />;
 }
 
 function Shell(props: { title: string; right?: any; children: any }) {
@@ -73,11 +110,12 @@ function Shell(props: { title: string; right?: any; children: any }) {
   );
 }
 
-function Setup(props: { opts: PracticeOptions; setOpts: (o: PracticeOptions) => void; onStart: (l: DrillLine[]) => void }) {
+function Setup(props: { opts: PracticeOptions; setOpts: (o: PracticeOptions) => void; onStart: (s: Session) => void }) {
   const { opts, setOpts } = props;
   const set = (patch: Partial<PracticeOptions>) => setOpts({ ...opts, ...patch });
-  const lines = useMemo(() => buildSession(allReps(), cardFor, opts), [JSON.stringify(opts)]);
-  const n = countTargets(lines);
+  const session = useMemo(() => sessionFor(opts), [JSON.stringify(opts)]);
+  const lines = session.lines;
+  const n = countTargets(lines) + session.playouts.length;
   const bk = useBook();
   const reps = openingRepertoires.value.filter((r) => opts.side === 'both' || r.side === opts.side);
 
@@ -163,8 +201,10 @@ function Setup(props: { opts: PracticeOptions; setOpts: (o: PracticeOptions) => 
         </div>
       )}
       <div class="pad">
-        <button class="btn primary block" disabled={!n} onClick={() => props.onStart(lines)}>
-          {n ? `Start · ${n} move${n === 1 ? '' : 's'} in ${lines.length} line${lines.length === 1 ? '' : 's'}` : 'Nothing to practice'}
+        <button class="btn primary block" disabled={!n} onClick={() => props.onStart(session)}>
+          {n
+            ? `Start · ${countTargets(lines)} move${countTargets(lines) === 1 ? '' : 's'}${session.playouts.length ? ` + ${session.playouts.length} position${session.playouts.length === 1 ? '' : 's'} to play out` : ''}`
+            : 'Nothing to practice'}
         </button>
         {opts.mode === 'daily' && <p class="muted small center">Daily size: {settings.value.dailySize} (change in Settings)</p>}
       </div>
@@ -180,7 +220,7 @@ interface Result {
   grade: 'again' | 'hard' | 'good';
 }
 
-function Drill(props: { lines: DrillLine[]; onExit: () => void }) {
+export function Drill(props: { lines: DrillLine[]; onExit: () => void; playouts?: string[]; doneTo?: string }) {
   const { lines } = props;
   const total = countTargets(lines);
   const [li, setLi] = useState(0);
@@ -311,7 +351,14 @@ function Drill(props: { lines: DrillLine[]; onExit: () => void }) {
     setPhase('fix');
   }
 
-  if (done || !line) return <Summary results={results} onExit={props.onExit} />;
+  if (done || !line)
+    return (
+      <Summary
+        results={results}
+        onExit={props.onExit}
+        next={props.playouts?.length ? { label: `Continue: ${props.playouts.length} position${props.playouts.length === 1 ? '' : 's'} to play out`, run: () => startPlayouts(props.playouts!, props.doneTo) } : undefined}
+      />
+    );
   if (playout) return <PlayOut params={{}} setup={playout} onExit={() => setPlayout(null)} />;
 
   const playFrom = answered && answered.li === li ? answered.fen : null;
@@ -383,7 +430,7 @@ function Drill(props: { lines: DrillLine[]; onExit: () => void }) {
   );
 }
 
-function Summary(props: { results: Result[]; onExit: () => void }) {
+function Summary(props: { results: Result[]; onExit: () => void; next?: { label: string; run: () => void } }) {
   const { results } = props;
   useEffect(() => requestAutoBackup(), []); // end of a practice session
   const correct = results.filter((r) => r.grade !== 'again').length;
@@ -406,7 +453,7 @@ function Summary(props: { results: Result[]; onExit: () => void }) {
             <div class="list-item">
               <span class="bad" style="color:var(--red)">✗</span>
               <div class="grow small">
-                {formatLine(r.line.slice(0, -1).map((m) => m.san))} → <b>{r.move.san}</b>
+                {formatLine(r.line.slice(0, -1).map((m) => m.san), r.line[0]?.fromFen.split(' ')[1] === 'b' ? 'b' : 'w')} → <b>{r.move.san}</b>
               </div>
             </div>
           ))}
@@ -416,7 +463,11 @@ function Summary(props: { results: Result[]; onExit: () => void }) {
         </div>
       )}
       <div class="pad">
-        <button class="btn primary block" onClick={props.onExit}>Done</button>
+        {props.next ? (
+          <button class="btn primary block" onClick={props.next.run}>{props.next.label}</button>
+        ) : (
+          <button class="btn primary block" onClick={props.onExit}>Done</button>
+        )}
       </div>
     </Shell>
   );

@@ -55,13 +55,24 @@ export function PlayOutExtras(props: { setup: PlayOutSetup; moves: string[]; par
         )
       )}
       {next.length > 0 ? (
-        <button class="btn primary block" onClick={() => go(`playout?pos=${next[0]}&queue=${next.slice(1).join(',')}&t=${Date.now()}`)}>
+        <button
+          class="btn primary block"
+          onClick={() => go(`playout?pos=${next[0]}&queue=${next.slice(1).join(',')}${props.params.done !== undefined ? `&done=${encodeURIComponent(props.params.done)}` : ''}&t=${Date.now()}`)}
+        >
           Next position ({next.length} left)
         </button>
       ) : (
         <button
           class="btn primary block"
-          onClick={() => (props.onExit ? props.onExit() : saved && !props.params.fen ? go(`position/${saved.id}`) : history.back())}
+          onClick={() =>
+            props.onExit
+              ? props.onExit()
+              : props.params.done !== undefined
+                ? go(props.params.done)
+                : saved && !props.params.fen
+                  ? go(`position/${saved.id}`)
+                  : history.back()
+          }
         >
           {props.onExit ? 'Back to the drill' : 'Done'}
         </button>

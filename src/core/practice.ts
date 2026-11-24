@@ -107,3 +107,76 @@ export function buildSession(
 export function countTargets(lines: DrillLine[]): number {
   return lines.reduce((n, l) => n + l.targets.length, 0);
 }
+
+// ---------------------------------------------------------------- daily mix (openings + positions)
+
+export interface PlayoutItem {
+  positionId: string;
+  card: CardState;
+  side: 'w' | 'b';
+}
+
+export interface DailyPlan {
+  lines: DrillLine[];
+  /** Positions to play out after the lines, in order. */
+  playouts: string[];
+  openingMoves: number;
+  positionItems: number;
+}
+
+/**
+ * Daily practice with positions mixed in: `ratio` of the daily size goes to due
+ * position items (play-outs and position line moves), the rest to opening moves. If
+ * either side has fewer due items than its share, the other side fills the gap.
+ */
+export function planDaily(
+  openingReps: { rep: Repertoire; graph: RepGraph }[],
+  positionReps: { rep: Repertoire; graph: RepGraph }[],
+  cardFor: (m: Move) => CardState,
+  playouts: PlayoutItem[],
+  opts: { dailySize: number; includePositions: boolean; ratio: number; side: 'w' | 'b' | 'both'; now?: number },
+): DailyPlan {
+  const now = opts.now ?? Date.now();
+  const size = Math.max(1, opts.dailySize);
+  const base = { side: opts.side, dailySize: 9999, now } as const;
+  const openDue = selectTargets(openingReps, cardFor, { ...base, mode: 'due' });
+  const posLineDue = opts.includePositions ? selectTargets(positionReps, cardFor, { ...base, mode: 'due' }) : [];
+  const playDue = opts.includePositions
+    ? playouts.filter((p) => isDue(p.card, now) && (opts.side === 'both' || p.side === opts.side))
+    : [];
+
+  // One queue of position items, most urgent first (reviewed cards by due date, new ones after).
+  type PosItem = { kind: 'line'; c: (typeof posLineDue)[number] } | { kind: 'play'; p: PlayoutItem };
+  const key = (c: CardState) => (c.state === 0 ? 1e15 + c.due : c.due);
+  const posItems: PosItem[] = [
+    ...posLineDue.map((c) => ({ kind: 'line' as const, c })),
+    ...playDue.map((p) => ({ kind: 'play' as const, p })),
+  ].sort((a, b) => key(a.kind === 'line' ? a.c.card : a.p.card) - key(b.kind === 'line' ? b.c.card : b.p.card));
+
+  let nPos = opts.includePositions ? Math.round(size * Math.min(1, Math.max(0, opts.ratio))) : 0;
+  let nOpen = size - nPos;
+  if (openDue.length < nOpen) nPos += nOpen - openDue.length; // openings run short → more positions
+  if (posItems.length < nPos) nOpen += nPos - posItems.length; // positions run short → more openings
+  const pickedOpen = openDue.slice(0, nOpen);
+  const pickedPos = posItems.slice(0, nPos);
+
+  const lineTargets = [...pickedOpen, ...pickedPos.filter((x) => x.kind === 'line').map((x) => (x as { c: (typeof posLineDue)[number] }).c)];
+  const lines: DrillLine[] = [];
+  for (const { rep, graph } of [...openingReps, ...positionReps]) {
+    const ids = lineTargets.filter((t) => t.rep.id === rep.id).map((t) => t.move.id);
+    if (!ids.length) continue;
+    const set = new Set(ids);
+    const used = new Set<string>();
+    for (const line of buildLines(graph, ids, set)) {
+      const t = line.filter((m) => set.has(m.id) && !used.has(m.id)).map((m) => m.id);
+      t.forEach((id) => used.add(id));
+      lines.push({ repId: rep.id, side: rep.side, moves: line, targets: t });
+    }
+  }
+  return {
+    lines,
+    playouts: pickedPos.filter((x) => x.kind === 'play').map((x) => (x as { p: PlayoutItem }).p.positionId),
+    openingMoves: pickedOpen.length,
+    positionItems: pickedPos.length,
+  };
+}

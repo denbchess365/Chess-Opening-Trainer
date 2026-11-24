@@ -11,6 +11,7 @@ import {
   positions,
   removePosition,
   savePosition,
+  stats,
 } from '../../state/store';
 import { BoardEditor } from '../BoardEditor';
 import { confirmDialog, promptDialog, toast } from '../dialogs';
@@ -44,6 +45,7 @@ export function PositionEdit(props: { id: string; params: Record<string, string>
   // A position whose lines are saved keeps its board (lines would no longer fit). Duplicate to vary it.
   const hasLines = !!existing?.repertoireId && graphOf(existing.repertoireId).size > 0;
   const check = checkPosition(draft.fen);
+  const lineStats = existing?.repertoireId ? stats.value.get(existing.repertoireId) : undefined;
   const dupOf = check.ok ? positions.value.find((p) => p.id !== existing?.id && positionKey(p.fen) === positionKey(check.fen)) : undefined;
 
   if (props.id !== 'new' && !existing)
@@ -169,9 +171,19 @@ export function PositionEdit(props: { id: string; params: Record<string, string>
         {existing && (
           <div class="card">
             <div class="row wrap" style="gap:8px">
-              <button class="btn grow" onClick={() => go(`playout?pos=${existing.id}`)}>▶︎ Play it out</button>
-              <button class="btn grow" onClick={() => go(`position-lines/${existing.id}`)}>📖 Lines</button>
+              <button class="btn grow primary" onClick={() => go(`playout?pos=${existing.id}`)}>⚔︎ Play it out</button>
+              <button class="btn grow" onClick={() => go(`position-lines/${existing.id}`)}>📖 Build lines</button>
             </div>
+            {lineStats && lineStats.total > 0 && (
+              <div class="row" style="margin-top:8px">
+                <span class="small muted grow">
+                  {lineStats.total} move{lineStats.total === 1 ? '' : 's'} to drill · {lineStats.due} due
+                </span>
+                <button class="btn small" onClick={() => go(`practice?mode=${lineStats.due ? 'due' : 'cram'}&rep=${existing.repertoireId}&auto=1&t=${Date.now()}`)}>
+                  🎯 Drill lines
+                </button>
+              </div>
+            )}
             <div class="row wrap" style="gap:8px;margin-top:8px">
               <button class="btn grow" onClick={() => go(`analysis?fen=${encodeURIComponent(existing.fen)}&orient=${existing.mySide}`)}>🔍 Analyse</button>
               <button class="btn grow" onClick={() => go(`position/new?dup=${existing.id}`)}>⧉ Duplicate &amp; edit</button>

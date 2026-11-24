@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildSession, countTargets, selectTargets } from '../src/core/practice';
+import { buildSession, countTargets, planDaily, selectTargets } from '../src/core/practice';
+import { playMove } from '../src/core/fen';
 import { newCard, review } from '../src/core/scheduler';
 import { RepGraph } from '../src/core/tree';
 import type { CardState, Move, Repertoire } from '../src/core/types';
@@ -73,5 +74,60 @@ describe('practice session', () => {
     expect(lines).toHaveLength(1);
     expect(lines[0].moves.map((m) => m.san)).toEqual(['e4', 'c5', 'Nf3', 'd6', 'd4']);
     expect(lines[0].targets.map((id) => wm.find((m) => m.id === id)!.san)).toEqual(['Nf3', 'd4']);
+  });
+});
+
+describe('daily mix with positions', () => {
+  const T = Date.UTC(2026, 5, 1);
+  const kbnRoot = '8/8/8/4k3/8/8/8/3BNK2 w - -';
+  function posRep() {
+    // A position line set: 1.Ke2 Kd4 2.Kd2 from the KBN start (my side White).
+    const moves = [
+      { san: 'Ke2', uci: 'f1e2' },
+      { san: 'Kd4', uci: 'e5d4' },
+      { san: 'Kd2', uci: 'e2d2' },
+    ];
+    let fen = kbnRoot;
+    const out: Move[] = moves.map((m, i) => {
+      const from = fen;
+      const p = playMove(from, m.uci.length ? { from: m.uci.slice(0, 2), to: m.uci.slice(2, 4) } : m.san)!;
+      fen = p.toFen;
+      return { id: `pm${i}`, repertoireId: 'pr', fromFen: from, toFen: p.toFen, san: p.san, uci: p.uci, isMine: i % 2 === 0, isPrimary: true, comment: '', createdAt: i };
+    });
+    return { rep: { id: 'pr', name: 'KBN', side: 'w' as const, createdAt: 0, kind: 'position' as const, startFen: kbnRoot }, graph: new RepGraph('w', out, kbnRoot) };
+  }
+  const playouts = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({ positionId: `p${i}`, side: 'w' as const, card: newCard(`pos:p${i}`, 'positions', T - 1000 + i) }));
+
+  it('splits the daily size by the ratio', () => {
+    const { reps, cardFor } = setup();
+    const plan = planDaily(reps, [posRep()], cardFor, playouts(5), { dailySize: 10, includePositions: true, ratio: 0.2, side: 'both', now: T });
+    // 9 opening moves are due in total; 8 slots for openings, 2 for positions.
+    expect(plan.openingMoves).toBe(8);
+    expect(plan.positionItems).toBe(2);
+  });
+
+  it('fills from the other side when one runs short', () => {
+    const { reps, cardFor } = setup();
+    const many = planDaily(reps, [posRep()], cardFor, playouts(10), { dailySize: 15, includePositions: true, ratio: 0.2, side: 'both', now: T });
+    expect(many.openingMoves).toBe(9); // all 9 due opening moves
+    expect(many.positionItems).toBe(6); // 3 + the 3 openings couldn't fill
+    const fewPos = planDaily(reps, [], cardFor, [], { dailySize: 10, includePositions: true, ratio: 0.5, side: 'both', now: T });
+    expect(fewPos.openingMoves).toBe(9);
+    expect(fewPos.playouts).toEqual([]);
+  });
+
+  it('can exclude positions', () => {
+    const { reps, cardFor } = setup();
+    const plan = planDaily(reps, [posRep()], cardFor, playouts(5), { dailySize: 10, includePositions: false, ratio: 0.5, side: 'both', now: T });
+    expect(plan.positionItems).toBe(0);
+    expect(plan.lines.every((l) => l.repId !== 'pr')).toBe(true);
+  });
+
+  it('position lines start from their custom FEN', () => {
+    const plan = planDaily([], [posRep()], (m) => newCard(m.id, m.repertoireId, T - 1), [], { dailySize: 10, includePositions: true, ratio: 1, side: 'both', now: T });
+    expect(plan.lines).toHaveLength(1);
+    expect(plan.lines[0].moves[0].fromFen).toBe(kbnRoot);
+    expect(plan.lines[0].moves.map((m) => m.san)).toEqual(['Ke2', 'Kd4', 'Kd2']);
   });
 });
