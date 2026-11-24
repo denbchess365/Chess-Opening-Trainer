@@ -1,10 +1,14 @@
 import { defineConfig } from 'vitest/config';
 import { VitePWA } from 'vite-plugin-pwa';
+import { readFileSync } from 'node:fs';
+
+const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
 
 // `base: './'` keeps every URL relative so the app works under
 // https://<user>.github.io/<repo>/ without knowing the repo name.
 export default defineConfig({
   base: './',
+  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
   build: { target: 'es2020', chunkSizeWarningLimit: 1200 },
   plugins: [
     VitePWA({

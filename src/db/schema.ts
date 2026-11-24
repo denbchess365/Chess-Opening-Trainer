@@ -1,9 +1,9 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import type { CardState, Move, Repertoire, ReviewLog } from '../core/types';
+import type { CardState, GameFinding, LichessGame, Move, Repertoire, ReviewLog, Snapshot } from '../core/types';
 
 export const DB_NAME = 'repertoire-trainer';
 /** Bump when the object stores change, and add a step to MIGRATIONS. Never remove old steps. */
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 
 export interface KV {
   key: string;
@@ -16,6 +16,9 @@ export interface TrainerDB extends DBSchema {
   cards: { key: string; value: CardState; indexes: { repertoireId: string } };
   reviewLogs: { key: number; value: ReviewLog; indexes: { moveId: string; repertoireId: string } };
   kv: { key: string; value: KV };
+  lichessGames: { key: string; value: LichessGame; indexes: { playedAt: number } };
+  findings: { key: string; value: GameFinding; indexes: { gameId: string; status: string } };
+  snapshots: { key: number; value: Snapshot };
 }
 
 type Upgrade = (db: IDBPDatabase<TrainerDB>) => void;
@@ -34,11 +37,26 @@ const MIGRATIONS: Upgrade[] = [
     logs.createIndex('repertoireId', 'repertoireId');
     db.createObjectStore('kv', { keyPath: 'key' });
   },
+  // 1 -> 2: Lichess game review + local snapshots
+  (db) => {
+    const games = db.createObjectStore('lichessGames', { keyPath: 'id' });
+    games.createIndex('playedAt', 'playedAt');
+    const findings = db.createObjectStore('findings', { keyPath: 'id' });
+    findings.createIndex('gameId', 'gameId');
+    findings.createIndex('status', 'status');
+    db.createObjectStore('snapshots', { keyPath: 'id', autoIncrement: true });
+  },
 ];
 
 let dbPromise: Promise<IDBPDatabase<TrainerDB>> | null = null;
 
-export function getDb(name = DB_NAME): Promise<IDBPDatabase<TrainerDB>> {
+export function setDbName(name: string) {
+  dbName = name;
+  dbPromise = null;
+}
+let dbName = DB_NAME;
+
+export function getDb(name = dbName): Promise<IDBPDatabase<TrainerDB>> {
   if (!dbPromise) {
     dbPromise = openDB<TrainerDB>(name, DB_VERSION, {
       upgrade(db, oldVersion) {

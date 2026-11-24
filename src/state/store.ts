@@ -1,6 +1,5 @@
-import { makeBackup, parseBackup } from '../core/backup';
+import { makeBackup, parseBackup, summarize, type ParsedBackup } from '../core/backupSchema';
 import { exportPgn, parsePgn } from '../core/pgn';
-import { DB_VERSION } from '../db/schema';
 import { computed, signal } from '@preact/signals';
 import * as repo from '../db/repo';
 import { turnOf, type PlayedMove } from '../core/fen';
@@ -10,7 +9,9 @@ import { completeness, drillableMoves, RepGraph, subtreeToDelete } from '../core
 import {
   DEFAULT_SETTINGS,
   type CardState,
+  type GameFinding,
   type Grade,
+  type LichessGame,
   type Meta,
   type Move,
   type Repertoire,
@@ -25,6 +26,18 @@ export const moves = signal<Move[]>([]);
 export const cards = signal<Map<string, CardState>>(new Map());
 export const settings = signal<Settings>({ ...DEFAULT_SETTINGS });
 export const meta = signal<Meta>({ streak: 0, lastPracticeDay: null, lastBackupAt: null });
+export const lichessGames = signal<LichessGame[]>([]);
+export const findings = signal<GameFinding[]>([]);
+/** Device-local key/values (token, Gist id, sync state). Never exported. */
+export const localKv = signal<Record<string, unknown>>({});
+/** Result of navigator.storage.persist(): true, false, or null when unsupported. */
+export const storagePersisted = signal<boolean | null>(null);
+/** Increments on every change to user data. */
+export const changeSeq = signal(0);
+repo.onDataWrite(() => changeSeq.value++);
+
+export const APP_VERSION: string = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev';
+
 /** Ticks every minute so "due" counts refresh. */
 export const now = signal(Date.now());
 setInterval(() => (now.value = Date.now()), 60_000);
@@ -115,18 +128,53 @@ export async function init() {
     repertoires.value = data.repertoires.sort((a, b) => a.createdAt - b.createdAt);
     moves.value = data.moves;
     cards.value = new Map(data.cards.map((c) => [c.moveId, c]));
+    lichessGames.value = data.lichessGames.sort((a, b) => b.playedAt - a.playedAt);
+    findings.value = data.findings;
+    localKv.value = await repo.loadLocalKv();
     if (!data.kv.initialized) {
       await createRepertoire('White openings', 'w');
       await createRepertoire('Black openings', 'b');
       await repo.putKv('initialized', true);
     }
     applyTheme();
-    // Ask the browser not to evict our data (best effort; Safari may ignore it).
-    navigator.storage?.persist?.().catch(() => {});
     ready.value = true;
+    requestPersistence();
   } catch (e) {
     loadError.value = String(e);
   }
+}
+
+/** Asks the browser not to evict our data. Safari grants this mostly to installed home-screen apps. */
+export async function requestPersistence() {
+  try {
+    if (!navigator.storage?.persist) {
+      storagePersisted.value = null;
+      return;
+    }
+    storagePersisted.value = (await navigator.storage.persisted?.()) || (await navigator.storage.persist());
+  } catch {
+    storagePersisted.value = false;
+  }
+}
+
+export async function setLocal(key: string, value: unknown) {
+  if (!key.startsWith('local:') && !key.startsWith('secret:')) throw new Error('not a local key');
+  localKv.value = { ...localKv.value, [key]: value };
+  await repo.putKv(key, value);
+}
+
+export async function removeLocal(key: string) {
+  const next = { ...localKv.value };
+  delete next[key];
+  localKv.value = next;
+  await repo.deleteKv(key);
+}
+
+export function deviceLabel(): string {
+  const saved = localKv.value['local:deviceLabel'];
+  if (typeof saved === 'string' && saved) return saved;
+  const ua = navigator.userAgent;
+  return /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android' : /Mac/.test(ua) ? 'Mac' : 'Browser';
 }
 
 export function applyTheme() {
@@ -168,7 +216,10 @@ export async function renameRepertoire(id: string, name: string) {
 }
 
 export async function deleteRepertoire(id: string) {
+  await takeSnapshot(`Before deleting “${repertoireById(id)?.name ?? 'repertoire'}”`);
   await repo.deleteRepertoire(id);
+  await repo.deleteFindingsForRepertoire(id);
+  findings.value = findings.value.filter((f) => f.repertoireId !== id);
   repertoires.value = repertoires.value.filter((r) => r.id !== id);
   moves.value = moves.value.filter((m) => m.repertoireId !== id);
   cards.value = new Map([...cards.value].filter(([, c]) => c.repertoireId !== id));
@@ -273,6 +324,9 @@ export async function setComment(moveId: string, comment: string) {
   if (m) await updateMoves([{ ...m, comment }]);
 }
 
+/** Deleting at least this many moves at once counts as a bulk delete (a snapshot is taken first). */
+const BULK_DELETE = 5;
+
 /** Number of moves that deleting `moveId` would remove. */
 export function deleteCount(moveId: string): number {
   const m = moves.value.find((x) => x.id === moveId);
@@ -284,6 +338,7 @@ export async function deleteMove(moveId: string) {
   const m = moves.value.find((x) => x.id === moveId);
   if (!m) return;
   const ids = subtreeToDelete(graphOf(m.repertoireId), moveId);
+  if (ids.length >= BULK_DELETE) await takeSnapshot(`Before deleting ${m.san} and ${ids.length - 1} following moves`);
   await repo.deleteMoves(ids);
   const gone = new Set(ids);
   moves.value = moves.value.filter((x) => !gone.has(x.id));
@@ -322,15 +377,31 @@ export async function reload() {
 // ---------------------------------------------------------------- import / export
 
 
-export async function importPgnText(repId: string, text: string) {
+export interface PgnImportResult {
+  games: number;
+  added: number;
+  errors: string[];
+  /** True when nothing was written because the file had errors and partial import wasn't allowed. */
+  aborted: boolean;
+}
+
+/**
+ * Imports PGN all-or-nothing: if any move is illegal nothing is written, unless
+ * `allowPartial` is set (then the bad lines are skipped). A snapshot is taken first.
+ */
+export async function importPgnText(repId: string, text: string, opts: { allowPartial?: boolean } = {}): Promise<PgnImportResult> {
   const r = parsePgn(text);
+  if (!repertoireById(repId)) return { games: r.games, added: 0, errors: ['Repertoire not found.'], aborted: true };
+  if (r.errors.length && !opts.allowPartial) return { games: r.games, added: 0, errors: r.errors, aborted: true };
+  if (!r.edges.length) return { games: r.games, added: 0, errors: [...r.errors, 'No moves found in this PGN.'], aborted: true };
+  await takeSnapshot('Before PGN import');
   const before = moves.value.length;
   await addLine(
     repId,
     r.edges.map((e) => e.played),
     r.edges.map((e) => e.comment || undefined),
   );
-  return { games: r.games, added: moves.value.length - before, errors: r.errors };
+  return { games: r.games, added: moves.value.length - before, errors: r.errors, aborted: false };
 }
 
 export function exportPgnText(repId: string): string {
@@ -338,12 +409,74 @@ export function exportPgnText(repId: string): string {
   return exportPgn(graphOf(repId), r?.name ?? 'Repertoire');
 }
 
-export async function backupText(): Promise<string> {
-  return makeBackup(await repo.loadAll(), DB_VERSION);
+export async function backupText(opts: { includeGames?: boolean } = {}): Promise<string> {
+  return makeBackup(await repo.loadAll(), { appVersion: APP_VERSION, deviceLabel: deviceLabel(), ...opts });
+}
+
+// ---------------------------------------------------------------- snapshots & restore
+
+/** Saves the current data as a local snapshot (the newest 5 are kept). */
+export async function takeSnapshot(reason: string) {
+  const data = await repo.loadAll();
+  await repo.addSnapshot({
+    createdAt: Date.now(),
+    reason,
+    json: makeBackup(data, { appVersion: APP_VERSION, deviceLabel: deviceLabel() }),
+    summary: summarize(data),
+  });
+}
+
+/** Validates a backup (JSON text or parsed object) without writing anything. */
+export function validateBackup(input: string | unknown): ParsedBackup {
+  return parseBackup(input);
+}
+
+/**
+ * Restores validated backup data. A snapshot of the current data is taken first
+ * so the restore can be undone. All writes happen in one transaction.
+ * Backups made without raw games keep the games already on this device.
+ */
+export async function restoreParsed(parsed: ParsedBackup, reason: string) {
+  await takeSnapshot(reason);
+  const d = parsed.data;
+  const games = parsed.meta.gamesIncluded ? d.lichessGames : (await repo.loadAll()).lichessGames;
+  await repo.replaceAll({ ...d, lichessGames: games, kv: { ...d.kv, initialized: true } });
+  await reload();
 }
 
 export async function restoreBackup(text: string) {
-  const data = parseBackup(text, DB_VERSION);
-  await repo.replaceAll({ ...data, kv: { ...data.kv, initialized: true } });
-  await reload();
+  const parsed = parseBackup(text);
+  await restoreParsed(parsed, 'Before restoring a backup file');
+  return parsed;
+}
+
+export async function restoreSnapshot(id: number) {
+  const snap = await repo.getSnapshot(id);
+  if (!snap) throw new Error('Snapshot not found.');
+  const parsed = parseBackup(snap.json);
+  await restoreParsed(parsed, 'Before restoring a snapshot');
+}
+
+// ---------------------------------------------------------------- backup reminder
+
+export const BACKUP_REMINDER_DAYS = 7;
+
+/** Most recent successful backup of any kind (manual export or Gist). */
+export const lastAnyBackup = computed(() => {
+  const gist = localKv.value['local:gist'] as { lastSuccessAt?: number } | undefined;
+  return Math.max(meta.value.lastBackupAt ?? 0, gist?.lastSuccessAt ?? 0) || null;
+});
+
+export const showBackupReminder = computed(() => {
+  if (!moves.value.length) return false;
+  const t = Math.max(now.value, Date.now());
+  const last = lastAnyBackup.value;
+  if (last && t - last < BACKUP_REMINDER_DAYS * 86400_000) return false;
+  const dismissed = localKv.value['local:reminderDismissedAt'];
+  // A dismissal snoozes the banner for a day.
+  return !(typeof dismissed === 'number' && t - dismissed < 86400_000);
+});
+
+export function dismissBackupReminder() {
+  return setLocal('local:reminderDismissedAt', Date.now());
 }

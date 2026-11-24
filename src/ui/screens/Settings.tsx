@@ -1,8 +1,11 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import type { Settings as S } from '../../core/types';
 import {
   backupText,
   deleteRepertoire,
+  requestPersistence,
+  restoreSnapshot,
+  storagePersisted,
   exportPgnText,
   importPgnText,
   markBackedUp,
@@ -17,6 +20,9 @@ import {
 import { confirmDialog, openModal, promptDialog, toast } from '../dialogs';
 import { pickTextFile, shareOrDownload, slug, stamp } from '../files';
 import { go } from '../router';
+import { listSnapshots } from '../../db/repo';
+import type { Snapshot } from '../../core/types';
+import { BackupError } from '../../core/backupSchema';
 
 function Chips<T extends string | number>(props: { value: T; options: [T, string][]; onChange: (v: T) => void }) {
   return (
@@ -39,8 +45,8 @@ function Field(props: { label: string; children: any }) {
   );
 }
 
-async function exportBackup() {
-  const text = await backupText();
+async function exportBackup(includeGames: boolean) {
+  const text = await backupText({ includeGames });
   if (await shareOrDownload(`repertoire-backup-${stamp()}.json`, text, 'application/json')) {
     await markBackedUp();
     toast('Backup exported');
@@ -56,12 +62,108 @@ async function importBackup() {
   );
   if (!ok) return;
   try {
-    await restoreBackup(text);
-    toast('Backup restored');
+    const r = await restoreBackup(text);
     go('');
+    await confirmDialog(
+      `Backup restored.${r.warnings.length ? `\n\nNotes:\n• ${r.warnings.slice(0, 5).join('\n• ')}` : ''}\n\nYour previous data was saved as a snapshot (Settings → Snapshots) in case you want to undo this.`,
+      { title: 'Restore complete' },
+    );
   } catch (e) {
-    toast(`Restore failed: ${(e as Error).message}`, 5000);
+    await confirmDialog(
+      `Nothing was changed.\n\n${e instanceof BackupError ? e.message : `Restore failed: ${(e as Error).message}`}`,
+      { title: 'Backup not restored' },
+    );
   }
+}
+
+function fmtBytes(n: number) {
+  return n > 1e9 ? `${(n / 1e9).toFixed(1)} GB` : n > 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Math.round(n / 1e3)} KB`;
+}
+
+function StorageCard() {
+  const [est, setEst] = useState<{ usage?: number; quota?: number } | null>(null);
+  useEffect(() => {
+    navigator.storage?.estimate?.().then(setEst).catch(() => setEst(null));
+  }, []);
+  const p = storagePersisted.value;
+  return (
+    <div class="card">
+      <h2>Storage</h2>
+      <div class="row">
+        <div class="grow">
+          Storage:{' '}
+          {p === true ? (
+            <b style="color:var(--green)">persistent ✓</b>
+          ) : (
+            <b style="color:var(--orange)">{p === null ? 'not supported' : 'not guaranteed'}</b>
+          )}
+        </div>
+        {p !== true && p !== null && (
+          <button class="btn small" onClick={requestPersistence}>Ask again</button>
+        )}
+      </div>
+      {est?.usage !== undefined && (
+        <p class="small muted">
+          Using about {fmtBytes(est.usage)}
+          {est.quota ? ` of ${fmtBytes(est.quota)} available` : ''}.
+        </p>
+      )}
+      {p !== true && (
+        <p class="small muted">
+          The browser may clear this app’s data if space runs low or the app goes unused. On iPhone, apps opened from the
+          home screen are protected best — and keep backups either way.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function SnapshotsCard() {
+  const [list, setList] = useState<Snapshot[] | null>(null);
+  const refresh = () => listSnapshots().then(setList);
+  useEffect(() => {
+    refresh();
+  }, []);
+  return (
+    <div class="card">
+      <h2>Snapshots</h2>
+      <p class="muted small">
+        Automatic local copies taken before restores, imports and bulk deletes. The newest 5 are kept on this device.
+      </p>
+      {list && list.length === 0 && <p class="muted small">No snapshots yet.</p>}
+      {list?.map((sn) => (
+        <div class="list-item">
+          <div class="grow" style="min-width:0">
+            <div class="small" style="font-weight:600">{sn.reason}</div>
+            <div class="small muted">
+              {new Date(sn.createdAt).toLocaleString()} · {sn.summary}
+            </div>
+          </div>
+          <button
+            class="btn small"
+            onClick={async () => {
+              if (
+                !(await confirmDialog(
+                  `Restore the snapshot from ${new Date(sn.createdAt).toLocaleString()}?\n${sn.summary}\n\nYour current data is saved as a new snapshot first.`,
+                  { ok: 'Restore', danger: true, title: 'Restore snapshot?' },
+                ))
+              )
+                return;
+              try {
+                await restoreSnapshot(sn.id!);
+                toast('Snapshot restored');
+                refresh();
+              } catch (e) {
+                await confirmDialog(`Nothing was changed.\n\n${(e as Error).message}`, { title: 'Snapshot not restored' });
+              }
+            }}
+          >
+            Restore
+          </button>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function PgnImport(props: { close: () => void }) {
@@ -72,10 +174,25 @@ function PgnImport(props: { close: () => void }) {
     if (!text.trim() || !repId) return;
     setBusy(true);
     try {
-      const r = await importPgnText(repId, text);
-      props.close();
-      const errs = r.errors.length ? `\n\n${r.errors.length} problem(s):\n${[...new Set(r.errors)].slice(0, 5).join('\n')}` : '';
-      await confirmDialog(`Imported ${r.games} game(s): ${r.added} new move(s) added.${errs}`, { ok: 'OK', title: 'PGN import' });
+      let r = await importPgnText(repId, text);
+      const list = (errs: string[]) => [...new Set(errs)].slice(0, 6).join('\n• ');
+      if (r.aborted && r.added === 0 && r.errors.length && !r.errors.includes('No moves found in this PGN.')) {
+        props.close();
+        const partial = await confirmDialog(
+          `Nothing was imported — the PGN has ${r.errors.length} problem(s):\n• ${list(r.errors)}\n\nImport the valid moves anyway and skip the bad lines?`,
+          { ok: 'Import valid moves', title: 'PGN has errors' },
+        );
+        if (!partial) return;
+        r = await importPgnText(repId, text, { allowPartial: true });
+      } else props.close();
+      if (r.aborted) {
+        await confirmDialog(`Nothing was imported.\n• ${list(r.errors)}`, { title: 'PGN import' });
+        return;
+      }
+      await confirmDialog(
+        `Imported ${r.games} game(s): ${r.added} new move(s) added.${r.errors.length ? `\n\nSkipped:\n• ${list(r.errors)}` : ''}\n\nA snapshot of your previous data was saved.`,
+        { ok: 'OK', title: 'PGN import' },
+      );
     } finally {
       setBusy(false);
     }
@@ -135,10 +252,19 @@ export function Settings() {
           </p>
           <p class="small">Last backup: <b>{last ? new Date(last).toLocaleString() : 'never'}</b></p>
           <div class="row">
-            <button class="btn primary grow" onClick={exportBackup}>Export backup</button>
+            <button class="btn primary grow" onClick={() => exportBackup(true)}>Export backup</button>
             <button class="btn grow" onClick={importBackup}>Restore…</button>
           </div>
+          <button class="btn small ghost block" style="margin-top:6px" onClick={() => exportBackup(false)}>
+            Export without Lichess games (smaller)
+          </button>
+          <p class="muted small">
+            Export opens the share sheet — choose “Save to Files” to keep it in iCloud Drive. Restoring validates the whole
+            file first; if anything is wrong, nothing changes.
+          </p>
         </div>
+        <StorageCard />
+        <SnapshotsCard />
 
         <div class="card">
           <h2>PGN</h2>

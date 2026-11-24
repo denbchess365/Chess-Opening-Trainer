@@ -1,9 +1,16 @@
-import { createRepertoire, currentStreak, meta, moves, repertoires, stats, totalDue } from '../../state/store';
+import {
+  createRepertoire,
+  currentStreak,
+  dismissBackupReminder,
+  lastAnyBackup,
+  repertoires,
+  showBackupReminder,
+  stats,
+  totalDue,
+} from '../../state/store';
 import { actionSheet, promptDialog } from '../dialogs';
 import { go } from '../router';
 import { updateReady } from '../pwa';
-
-const BACKUP_REMINDER_DAYS = 7;
 
 export function pct(x: number) {
   return `${Math.round(x * 100)}%`;
@@ -21,9 +28,7 @@ async function newRepertoire() {
 export function Home() {
   const due = totalDue.value;
   const streak = currentStreak.value;
-  const last = meta.value.lastBackupAt;
-  const needsBackup =
-    moves.value.length > 0 && (!last || Date.now() - last > BACKUP_REMINDER_DAYS * 86400_000);
+  const last = lastAnyBackup.value;
 
   return (
     <div class="screen">
@@ -39,10 +44,14 @@ export function Home() {
             ✨ A new version is ready — tap to update.
           </div>
         )}
-        {needsBackup && (
-          <div class="banner" onClick={() => go('settings')} style="cursor:pointer">
-            💾 {last ? `Last backup ${Math.floor((Date.now() - last) / 86400_000)} days ago.` : 'You have never backed up.'} iOS can
-            clear data of web apps you don't open for a while — tap to export a backup.
+        {showBackupReminder.value && (
+          <div class="banner row" style="align-items:flex-start">
+            <div class="grow" style="cursor:pointer" onClick={() => go('settings')}>
+              💾 <b>Back up your repertoire.</b>{' '}
+              {last ? `Last backup ${Math.floor((Date.now() - last) / 86400_000)} days ago.` : 'You have never backed up.'} iOS can
+              clear data of web apps — tap to back up.
+            </div>
+            <button class="btn small ghost" aria-label="Dismiss" onClick={dismissBackupReminder}>✕</button>
           </div>
         )}
 

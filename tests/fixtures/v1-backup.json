@@ -1,0 +1,232 @@
+{
+ "app": "repertoire-trainer",
+ "schemaVersion": 1,
+ "exportedAt": "2026-11-22T23:49:34.916Z",
+ "data": {
+  "repertoires": [
+   {
+    "id": "aea84739-3acd-4f9a-b35a-1932718aa3b1",
+    "name": "Black openings",
+    "side": "b",
+    "createdAt": 1795391371672
+   },
+   {
+    "id": "bc4d59cc-9380-40ec-a29e-c96deb067cc2",
+    "name": "White openings",
+    "side": "w",
+    "createdAt": 1795391371657
+   }
+  ],
+  "moves": [
+   {
+    "id": "1cb7e294-7967-4cf7-bd13-cb990632dc46",
+    "repertoireId": "aea84739-3acd-4f9a-b35a-1932718aa3b1",
+    "fromFen": "rnbqkb1r/pppppppp/5n2/8/2PP4/8/PP2PPPP/RNBQKBNR b KQkq -",
+    "toFen": "rnbqkb1r/pppp1ppp/4pn2/8/2PP4/8/PP2PPPP/RNBQKBNR w KQkq -",
+    "san": "e6",
+    "uci": "e7e6",
+    "isMine": true,
+    "isPrimary": true,
+    "comment": "",
+    "createdAt": 1795391374770
+   },
+   {
+    "id": "24454b35-3579-455c-85df-5eda768b03d5",
+    "repertoireId": "aea84739-3acd-4f9a-b35a-1932718aa3b1",
+    "fromFen": "rnbqkbnr/pp2pppp/3p4/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq -",
+    "toFen": "rnbqkbnr/pp2pppp/3p4/2p5/3PP3/5N2/PPP2PPP/RNBQKB1R b KQkq -",
+    "san": "d4",
+    "uci": "d2d4",
+    "isMine": false,
+    "isPrimary": true,
+    "comment": "",
+    "createdAt": 1795391374770
+   },
+   {
+    "id": "35175f31-c8c1-4390-91ee-20bdf1fdab1c",
+    "repertoireId": "aea84739-3acd-4f9a-b35a-1932718aa3b1",
+    "fromFen": "rnbqkb1r/pp2pppp/3p1n2/8/3NP3/2N5/PPP2PPP/R1BQKB1R b KQkq -",
+    "toFen": "rnbqkb1r/1p2pppp/p2p1n2/8/3NP3/2N5/PPP2PPP/R1BQKB1R w KQkq -",
+    "san": "a6",
+    "uci": "a7a6",
+    "isMine": true,
+    "isPrimary": true,
+    "comment": "",
+    "createdAt": 1795391374770
+   },
+   {
+    "id": "6600d410-08f7-46de-a1c9-ef049184f2ce",
+    "repertoireId": "aea84739-3acd-4f9a-b35a-1932718aa3b1",
+    "fromFen": "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq -",
+    "toFen": "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq -",
+    "san": "c5",
+    "uci": "c7c5",
+    "isMine": true,
+    "isPrimary": true,
+    "comment": "Sicilian!",
+    "createdAt": 1795391374770
+   },
+   {
+    "id": "6ca6ee45-040a-4728-8b48-85622714f05e",
+    "repertoireId": "aea84739-3acd-4f9a-b35a-1932718aa3b1",
+    "fromFen": "rnbqkbnr/pp1ppppp/8/2p5/4P3/2P5/PP1P1PPP/RNBQKBNR b KQkq -",
+    "toFen": "rnbqkbnr/pp2pppp/8/2pp4/4P3/2P5/PP1P1PPP/RNBQKBNR w KQkq -",
+    "san": "d5",
+    "uci": "d7d5",
+    "isMine": true,
+    "isPrimary": true,
+    "comment": "",
+    "createdAt": 1795391374770
+   },
+   {
+    "id": "707d4174-97e7-446a-a627-ff19dd74b6a2",
+    "repertoireId": "aea84739-3acd-4f9a-b35a-1932718aa3b1",
+    "fromFen": "rnbqkb1r/pp2pppp/3p1n2/8/3NP3/8/PPP2PPP/RNBQKB1R w KQkq -",
+    "toFen": "rnbqkb1r/pp2pppp/3p1n2/8/3NP3/2N5/PPP2PPP/R1BQKB1R b KQkq -",
+    "san": "Nc3",
+    "uci": "b1c3",
+    "isMine": false,
+    "isPrimary": true,
+    "comment": "",
+    "createdAt": 1795391374770
+   },
+   {
+    "id": "70cb78d2-ec1d-4d58-ba70-880859e4ab9b",
+    "repertoireId": "aea84739-3acd-4f9a-b35a-1932718aa3b1",
+    "fromFen": "rnbqkbnr/pp2pppp/3p4/2p5/3PP3/5N2/PPP2PPP/RNBQKB1R b KQkq -",
+    "toFen": "rnbqkbnr/pp2pppp/3p4/8/3pP3/5N2/PPP2PPP/RNBQKB1R w KQkq -",
+    "san": "cxd4",
+    "uci": "c5d4",
+    "isMine": true,
+    "isPrimary": true,
+    "comment": "",
+    "createdAt": 1795391374770
+   },
+   {
+    "id": "7b24ae1b-b22a-4370-9da2-f2608725aa18",
+    "repertoireId": "aea84739-3acd-4f9a-b35a-1932718aa3b1",
+    "fromFen": "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq -",
+    "toFen": "rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq -",
+    "san": "Nf3",
+    "uci": "g1f3",
+    "isMine": false,
+    "isPrimary": true,
+    "comment": "",
+    "createdAt": 1795391374770
+   },
+   {
+    "id": "9efebb7c-2635-4cec-8c2c-309e1dbac185",
+    "repertoireId": "aea84739-3acd-4f9a-b35a-1932718aa3b1",
+    "fromFen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
+    "toFen": "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq -",
+    "san": "d4",
+    "uci": "d2d4",
+    "isMine": false,
+    "isPrimary": true,
+    "comment": "",
+    "createdAt": 1795391374770
+   },
+   {
+    "id": "a2de2754-31ed-4b36-a4c1-bf6c1b9277b6",
+    "repertoireId": "aea84739-3acd-4f9a-b35a-1932718aa3b1",
+    "fromFen": "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq -",
+    "toFen": "rnbqkbnr/pp1ppppp/8/2p5/4P3/2P5/PP1P1PPP/RNBQKBNR b KQkq -",
+    "san": "c3",
+    "uci": "c2c3",
+    "isMine": false,
+    "isPrimary": true,
+    "comment": "",
+    "createdAt": 1795391374770
+   },
+   {
+    "id": "aee512da-741c-4d80-a413-87c18249bcb8",
+    "repertoireId": "aea84739-3acd-4f9a-b35a-1932718aa3b1",
+    "fromFen": "rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq -",
+    "toFen": "rnbqkbnr/pp2pppp/3p4/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq -",
+    "san": "d6",
+    "uci": "d7d6",
+    "isMine": true,
+    "isPrimary": true,
+    "comment": "",
+    "createdAt": 1795391374770
+   },
+   {
+    "id": "bbdc73bc-b206-4ae9-873f-3268509fb1a7",
+    "repertoireId": "aea84739-3acd-4f9a-b35a-1932718aa3b1",
+    "fromFen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -",
+    "toFen": "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq -",
+    "san": "e4",
+    "uci": "e2e4",
+    "isMine": false,
+    "isPrimary": true,
+    "comment": "",
+    "createdAt": 1795391374770
+   },
+   {
+    "id": "c97ac759-0a50-4cef-985b-d83448f59b8c",
+    "repertoireId": "aea84739-3acd-4f9a-b35a-1932718aa3b1",
+    "fromFen": "rnbqkb1r/pp2pppp/3p1n2/8/3NP3/2N5/PPP2PPP/R1BQKB1R b KQkq -",
+    "toFen": "rnbqkb1r/pp2pp1p/3p1np1/8/3NP3/2N5/PPP2PPP/R1BQKB1R w KQkq -",
+    "san": "g6",
+    "uci": "g7g6",
+    "isMine": true,
+    "isPrimary": false,
+    "comment": "",
+    "createdAt": 1795391374770
+   },
+   {
+    "id": "d1e01d82-885e-48d3-8556-5dbb71d33784",
+    "repertoireId": "aea84739-3acd-4f9a-b35a-1932718aa3b1",
+    "fromFen": "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq -",
+    "toFen": "rnbqkb1r/pppppppp/5n2/8/3P4/8/PPP1PPPP/RNBQKBNR w KQkq -",
+    "san": "Nf6",
+    "uci": "g8f6",
+    "isMine": true,
+    "isPrimary": true,
+    "comment": "",
+    "createdAt": 1795391374770
+   },
+   {
+    "id": "dbe3215e-98e9-44c6-8f92-ebfdd773d8e2",
+    "repertoireId": "aea84739-3acd-4f9a-b35a-1932718aa3b1",
+    "fromFen": "rnbqkbnr/pp2pppp/3p4/8/3pP3/5N2/PPP2PPP/RNBQKB1R w KQkq -",
+    "toFen": "rnbqkbnr/pp2pppp/3p4/8/3NP3/8/PPP2PPP/RNBQKB1R b KQkq -",
+    "san": "Nxd4",
+    "uci": "f3d4",
+    "isMine": false,
+    "isPrimary": true,
+    "comment": "",
+    "createdAt": 1795391374770
+   },
+   {
+    "id": "deb817cd-46c0-466c-9c25-5f14d2190b3e",
+    "repertoireId": "aea84739-3acd-4f9a-b35a-1932718aa3b1",
+    "fromFen": "rnbqkb1r/pppppppp/5n2/8/3P4/8/PPP1PPPP/RNBQKBNR w KQkq -",
+    "toFen": "rnbqkb1r/pppppppp/5n2/8/2PP4/8/PP2PPPP/RNBQKBNR b KQkq -",
+    "san": "c4",
+    "uci": "c2c4",
+    "isMine": false,
+    "isPrimary": true,
+    "comment": "",
+    "createdAt": 1795391374770
+   },
+   {
+    "id": "dec1b334-6185-4d02-837a-c1b6aa36473e",
+    "repertoireId": "aea84739-3acd-4f9a-b35a-1932718aa3b1",
+    "fromFen": "rnbqkbnr/pp2pppp/3p4/8/3NP3/8/PPP2PPP/RNBQKB1R b KQkq -",
+    "toFen": "rnbqkb1r/pp2pppp/3p1n2/8/3NP3/8/PPP2PPP/RNBQKB1R w KQkq -",
+    "san": "Nf6",
+    "uci": "g8f6",
+    "isMine": true,
+    "isPrimary": true,
+    "comment": "",
+    "createdAt": 1795391374770
+   }
+  ],
+  "cards": [],
+  "reviewLogs": [],
+  "kv": {
+   "initialized": true
+  }
+ }
+}
