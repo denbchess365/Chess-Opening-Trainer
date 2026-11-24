@@ -3,15 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <!--
-      Content Security Policy. Only two remote hosts are reachable, and only via fetch:
-      lichess.org (public games) and api.github.com (Gist backups).
+      Content Security Policy. Only three remote hosts are reachable, and only via fetch:
+      lichess.org (public games), api.github.com (Gist backups) and
+      tablebase.lichess.ovh (optional endgame tablebase during play-outs).
       'wasm-unsafe-eval' lets Stockfish compile its WebAssembly; inline <script> stays blocked.
       'unsafe-inline' styles are needed for the board's inline positioning.
       (frame-ancestors can't be set from a meta tag; GitHub Pages doesn't allow custom headers.)
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; media-src 'self'; manifest-src 'self'; connect-src 'self' https://lichess.org https://api.github.com; object-src 'none'; base-uri 'self'; form-action 'none'"
+      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; media-src 'self'; manifest-src 'self'; connect-src 'self' https://lichess.org https://api.github.com https://tablebase.lichess.ovh; object-src 'none'; base-uri 'self'; form-action 'none'"
     />
     <meta name="referrer" content="no-referrer" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />

@@ -8,11 +8,14 @@ import type { Move, Side } from './types';
  */
 export class RepGraph {
   readonly side: Side;
+  /** Normalized FEN the tree starts from (the standard start position for openings). */
+  readonly root: string;
   readonly byFrom = new Map<string, Move[]>();
   readonly byId = new Map<string, Move>();
 
-  constructor(side: Side, moves: Iterable<Move>) {
+  constructor(side: Side, moves: Iterable<Move>, root: string = ROOT) {
     this.side = side;
+    this.root = root;
     for (const m of moves) this.add(m);
     for (const list of this.byFrom.values()) list.sort(moveOrder);
   }
@@ -65,7 +68,7 @@ function moveOrder(a: Move, b: Move): number {
  * opponent replies). Returns, for each reached position, the move used to
  * reach it first (giving shortest paths).
  */
-export function activeBfs(g: RepGraph, start = ROOT): Map<string, Move | null> {
+export function activeBfs(g: RepGraph, start = g.root): Map<string, Move | null> {
   const parent = new Map<string, Move | null>([[start, null]]);
   const queue = [start];
   while (queue.length) {
@@ -81,7 +84,7 @@ export function activeBfs(g: RepGraph, start = ROOT): Map<string, Move | null> {
 }
 
 /** Same as activeBfs but over every saved move (alternatives included). */
-export function fullBfs(g: RepGraph, start = ROOT): Map<string, Move | null> {
+export function fullBfs(g: RepGraph, start = g.root): Map<string, Move | null> {
   const parent = new Map<string, Move | null>([[start, null]]);
   const queue = [start];
   while (queue.length) {
@@ -114,7 +117,7 @@ export function pathTo(g: RepGraph, fen: string): Move[] | null {
 }
 
 /** My primary moves at positions reachable in the active repertoire: these are the drillable cards. */
-export function drillableMoves(g: RepGraph, start = ROOT): Move[] {
+export function drillableMoves(g: RepGraph, start = g.root): Move[] {
   const out: Move[] = [];
   for (const fen of activeBfs(g, start).keys()) {
     if (g.isMyTurn(fen)) {
@@ -173,8 +176,8 @@ export function completeness(g: RepGraph): Completeness {
 export function subtreeToDelete(g: RepGraph, moveId: string): string[] {
   const target = g.byId.get(moveId);
   if (!target) return [];
-  const reachable = new Set<string>([ROOT]);
-  const queue = [ROOT];
+  const reachable = new Set<string>([g.root]);
+  const queue = [g.root];
   while (queue.length) {
     const fen = queue.shift()!;
     for (const m of g.children(fen)) {

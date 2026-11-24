@@ -10,6 +10,7 @@ import { Stats } from './ui/screens/Stats';
 import { Review } from './ui/screens/Review';
 import { Positions } from './ui/screens/Positions';
 import { PositionEdit } from './ui/screens/PositionEdit';
+import { PlayOut } from './ui/screens/PlayOut';
 import { unlockAudioOnGesture } from './ui/sound';
 import { installAutoBackupTriggers } from './state/gistBackup';
 import { maybeAutoSync } from './state/lichessSync';
@@ -54,6 +55,9 @@ export function App() {
       break;
     case 'position':
       screen = <PositionEdit key={location.hash} id={r.params.id ?? 'new'} params={r.params} />;
+      break;
+    case 'playout':
+      screen = <PlayOut key={location.hash} params={r.params} />;
       break;
     case 'stats':
       screen = <Stats />;

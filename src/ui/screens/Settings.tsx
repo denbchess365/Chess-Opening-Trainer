@@ -306,6 +306,42 @@ export function Settings() {
         </div>
 
         <div class="card">
+          <h2>Positions</h2>
+          <Field label="Include positions in Daily practice">
+            <Chips value={s.positionsInDaily ? 'on' : 'off'} options={[['on', 'Yes'], ['off', 'No']]} onChange={(v) => set({ positionsInDaily: v === 'on' })} />
+          </Field>
+          {s.positionsInDaily && (
+            <Field label="Mix (share of the daily size for positions)">
+              <Chips
+                value={s.positionsRatio}
+                options={[[0.1, '90/10'], [0.2, '80/20'], [0.3, '70/30'], [0.5, '50/50']]}
+                onChange={(v) => set({ positionsRatio: v })}
+              />
+            </Field>
+          )}
+          <Field label="Move feedback while playing it out">
+            <Chips
+              value={s.playoutFeedback}
+              options={[['immediate', 'After each move'], ['end', 'At the end'], ['off', 'Off']]}
+              onChange={(v) => set({ playoutFeedback: v })}
+            />
+          </Field>
+          <Field label="Engine strength for the defending side (depth)">
+            <Chips value={s.defenderDepth} options={[[14, '14'], [18, '18'], [22, '22'], [26, '26']]} onChange={(v) => set({ defenderDepth: v })} />
+          </Field>
+          <Field label="Hint depth">
+            <Chips value={s.playoutFeedbackDepth} options={[[10, '10'], [12, '12'], [16, '16'], [20, '20']]} onChange={(v) => set({ playoutFeedbackDepth: v })} />
+          </Field>
+          <Field label="Use the Lichess tablebase when online (≤ 7 pieces)">
+            <Chips value={s.useTablebase ? 'on' : 'off'} options={[['on', 'On'], ['off', 'Off']]} onChange={(v) => set({ useTablebase: v === 'on' })} />
+          </Field>
+          <p class="muted small">
+            With ≤ 5 pieces Stockfish searches deeper automatically. The tablebase gives perfect defence and the exact mate
+            distance; it contacts tablebase.lichess.ovh with the position only, and falls back to Stockfish offline.
+          </p>
+        </div>
+
+        <div class="card">
           <h2>Engine</h2>
           <Field label="Depth">
             <Chips value={s.engineDepth} options={[[12, '12'], [15, '15'], [18, '18'], [22, '22'], [26, '26']]} onChange={(v) => set({ engineDepth: v })} />

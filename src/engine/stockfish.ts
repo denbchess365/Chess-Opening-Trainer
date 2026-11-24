@@ -162,12 +162,13 @@ class Engine {
   }
 
   /** Evaluates one position (MultiPV 1). Resolves with the final line and whether the search completed. */
-  evaluate(fen: string, depth: number): Promise<{ line: EngineLine | null; complete: boolean }> {
+  evaluate(fen: string, depth: number, movetimeMs?: number): Promise<{ line: EngineLine | null; complete: boolean }> {
     return new Promise((resolve) => {
       let last: EngineLine | null = null;
       this.analyze({
         fen,
         depth,
+        movetimeMs,
         multiPv: 1,
         onUpdate: (l) => (last = l[0] ?? last),
         onDone: (complete) => resolve({ line: last, complete }),

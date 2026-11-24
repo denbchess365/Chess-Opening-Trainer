@@ -1,4 +1,3 @@
-import { ROOT } from './fen';
 import { isDue } from './scheduler';
 import { buildLines, drillableMoves, type RepGraph } from './tree';
 import type { CardState, Move, Repertoire } from './types';
@@ -46,7 +45,7 @@ export function selectTargets(
   for (const { rep, graph } of reps) {
     if (opts.side !== 'both' && rep.side !== opts.side) continue;
     if (opts.repId && rep.id !== opts.repId) continue;
-    const start = opts.mode === 'subtree' && opts.fen ? opts.fen : ROOT;
+    const start = opts.mode === 'subtree' && opts.fen ? opts.fen : graph.root;
     drillableMoves(graph, start).forEach((move, depth) => pool.push({ move, card: cardFor(move), rep, depth }));
   }
 

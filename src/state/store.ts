@@ -2,7 +2,7 @@ import { makeBackup, parseBackup, summarize, type ParsedBackup } from '../core/b
 import { exportPgn, parsePgn } from '../core/pgn';
 import { computed, signal } from '@preact/signals';
 import * as repo from '../db/repo';
-import { turnOf, type PlayedMove } from '../core/fen';
+import { ROOT, turnOf, type PlayedMove } from '../core/fen';
 import { localDay, previousDay, uid } from '../core/ids';
 import { isDue, isMastered, newCard, review } from '../core/scheduler';
 import { completeness, drillableMoves, RepGraph, subtreeToDelete } from '../core/tree';
@@ -61,7 +61,7 @@ export const graphs = computed(() => {
     else byRep.set(m.repertoireId, [m]);
   }
   const out = new Map<string, RepGraph>();
-  for (const r of repertoires.value) out.set(r.id, new RepGraph(r.side, byRep.get(r.id) ?? []));
+  for (const r of repertoires.value) out.set(r.id, new RepGraph(r.side, byRep.get(r.id) ?? [], r.startFen ?? ROOT));
   return out;
 });
 
@@ -375,11 +375,16 @@ export async function deleteMove(moveId: string) {
 // ---------------------------------------------------------------- reviews
 
 export async function recordReview(m: Move, grade: Grade) {
+  await reviewCard(cardFor(m), grade);
+}
+
+/** Applies a grade to any card (opening move, position line move or play-out card) and updates the streak. */
+async function reviewCard(card: CardState, grade: Grade) {
   const t = Date.now();
-  const next = review(cardFor(m), grade, t);
-  cards.value = new Map(cards.value).set(m.id, next);
+  const next = review(card, grade, t);
+  cards.value = new Map(cards.value).set(card.moveId, next);
   await repo.putCard(next);
-  await repo.addReviewLog({ moveId: m.id, repertoireId: m.repertoireId, ts: t, grade });
+  await repo.addReviewLog({ moveId: card.moveId, repertoireId: card.repertoireId, ts: t, grade });
   const today = localDay(t);
   const mt = meta.value;
   if (mt.lastPracticeDay !== today) {
@@ -586,3 +591,19 @@ export async function deleteCollection(id: string) {
 
 /** All tags in use, for filters and suggestions. */
 export const allTags = computed(() => [...new Set(positions.value.flatMap((p) => p.tags))].sort());
+
+// ---------------------------------------------------------------- play-outs (Mode A)
+
+/** Saves a finished play-out; for a saved position also grades its play-out card. */
+export async function finishRun(run: PracticeRun, opts: { grade?: Grade } = {}) {
+  const withGrade = { ...run, grade: opts.grade };
+  await repo.putRun(withGrade);
+  practiceRuns.value = [...practiceRuns.value, withGrade];
+  const p = run.positionId ? positionById(run.positionId) : undefined;
+  if (p && opts.grade) await reviewCard(positionCard(p), opts.grade);
+  return withGrade;
+}
+
+export function runsFor(positionId: string): PracticeRun[] {
+  return practiceRuns.value.filter((r) => r.positionId === positionId);
+}
