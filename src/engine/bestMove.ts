@@ -1,6 +1,6 @@
 import { Chess } from 'chess.js';
 import { pieceCount } from '../core/positions';
-import { probe, TB_MAX_PIECES, tbScore } from '../net/tablebase';
+import { probe, tablebaseApplies, tbScore } from '../net/tablebase';
 import { engine, type EngineLine } from './stockfish';
 
 const MATE = 10000;
@@ -23,14 +23,14 @@ function lineScore(l: EngineLine | null): number | null {
 }
 
 /**
- * Best move + evaluation for a position: Lichess tablebase when enabled, online and
- * ≤ 7 pieces; otherwise Stockfish. With ≤ 5 pieces Stockfish searches deeper so its
+ * Best move + evaluation for a position: Lichess tablebase when enabled, online, ≤ 7 pieces
+ * and no castling rights; otherwise Stockfish (which handles castling fully). With ≤ 5 pieces Stockfish searches deeper so its
  * defence is accurate.
  */
 export async function analyse(fen: string, opts: { depth: number; useTablebase: boolean; maxMs?: number }): Promise<Analysis> {
   const pieces = pieceCount(fen);
   const turnWhite = fen.split(' ')[1] !== 'b';
-  if (opts.useTablebase && pieces <= TB_MAX_PIECES) {
+  if (opts.useTablebase && tablebaseApplies(fen)) {
     const tb = await probe(fen);
     if (tb) {
       const s = tbScore(tb.category, tb.dtm);

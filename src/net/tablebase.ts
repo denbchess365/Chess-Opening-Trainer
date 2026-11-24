@@ -37,6 +37,17 @@ export interface TbResult {
   moves: TbMove[];
 }
 
+/**
+ * Whether the tablebase can be trusted for this position: ≤ 7 pieces and NO castling
+ * rights. Tablebases don't model castling (Lichess's ignores the rights and never suggests
+ * castling), so any position where either side may still castle goes to Stockfish.
+ */
+export function tablebaseApplies(fen: string): boolean {
+  const [placement, , castling = '-'] = fen.trim().split(/\s+/);
+  const pieces = (placement.match(/[a-zA-Z]/g) ?? []).length;
+  return pieces <= TB_MAX_PIECES && castling === '-';
+}
+
 let busy: Promise<unknown> = Promise.resolve();
 let cooldownUntil = 0;
 
@@ -59,7 +70,7 @@ export function probe(fen: string): Promise<TbResult | null> {
       }
       if (!res.ok) return null;
       const d = await res.json();
-      if (!d || typeof d.category !== 'string' || !Array.isArray(d.moves)) return null;
+      if (!d || typeof d.category !== 'string' || !Array.isArray(d.moves) || d.category === 'unknown') return null;
       return {
         category: d.category,
         dtm: typeof d.dtm === 'number' ? d.dtm : null,

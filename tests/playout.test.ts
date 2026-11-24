@@ -95,3 +95,13 @@ describe('play-out → line', () => {
     expect(playoutToLine(new Chess().fen(), ['e2e4', 'e2e4']).length).toBe(1);
   });
 });
+
+describe('tablebase eligibility', () => {
+  it('uses the tablebase only with ≤ 7 pieces and no castling rights', async () => {
+    const { tablebaseApplies } = await import('../src/net/tablebase');
+    expect(tablebaseApplies('8/8/8/4k3/8/8/8/3BNK2 w - - 0 1')).toBe(true);
+    expect(tablebaseApplies('r3k3/8/8/8/8/8/8/4K2R w K - 0 1')).toBe(false); // White may still castle
+    expect(tablebaseApplies('r3k3/8/8/8/8/8/8/4K2R w - - 0 1')).toBe(true); // king moved and came back: no rights
+    expect(tablebaseApplies('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1')).toBe(false); // too many pieces
+  });
+});
