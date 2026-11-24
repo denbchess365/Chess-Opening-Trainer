@@ -39,8 +39,9 @@ export function compareGame(sans: string[], myColor: 'w' | 'b', g: RepGraph): Co
         return { type: 'outOfBook', fen, ply, playedSan: p.san, playedUci: p.uci, matched: ply };
       }
     } else if (!known) {
-      // Opponent left my lines. If I had nothing prepared here, my line simply ended: success.
-      if (g.children(fen).length === 0) return { type: 'followed', fen, ply, playedSan: p.san, playedUci: p.uci, matched: ply };
+      // Opponent left my lines. If my line simply ended here (I played into this position), that's
+      // a success. At the very start with nothing prepared, it's an unprepared reply (a gap).
+      if (g.children(fen).length === 0 && ply > 0) return { type: 'followed', fen, ply, playedSan: p.san, playedUci: p.uci, matched: ply };
       return { type: 'gap', fen, ply, playedSan: p.san, playedUci: p.uci, matched: ply };
     }
     fen = p.toFen;

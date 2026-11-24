@@ -55,6 +55,10 @@ describe('compareGame', () => {
     expect(compareGame(sans('Nf3 Nc6 e4 e5 Bc4'), 'w', g)).toMatchObject({ type: 'deviation', ply: 4, expectedSan: 'Bb5' });
   });
 
+  it('an empty black repertoire is a gap at the first move, not a success', () => {
+    expect(compareGame(sans('e4 e5'), 'b', new RepGraph('b', []))).toMatchObject({ type: 'gap', ply: 0, playedSan: 'e4' });
+  });
+
   it('black repertoire: deviation and gap', () => {
     expect(compareGame(sans('e4 e5'), 'b', black)).toMatchObject({ type: 'deviation', ply: 1, expectedSan: 'c5' });
     expect(compareGame(sans('e4 c5 c3'), 'b', black)).toMatchObject({ type: 'gap', ply: 2, playedSan: 'c3' });
