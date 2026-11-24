@@ -6,6 +6,7 @@ import { collections, createCollection, deleteCollection, positionCard, position
 import { actionSheet, confirmDialog, promptDialog } from '../dialogs';
 import { openFenPaste, openPgnPick } from '../PositionImport';
 import { go } from '../router';
+import { KbnGuide } from '../KbnGuide';
 
 const GOAL_LABEL = { win: 'Win', draw: 'Draw', bestMove: 'Best move' } as const;
 
@@ -125,6 +126,8 @@ export function Positions() {
             );
           })}
         </div>
+
+        {all.some((p) => materialSignature(p.fen) === 'KBNvK') && <KbnGuide />}
 
         <div class="card">
           <h2>Collections</h2>

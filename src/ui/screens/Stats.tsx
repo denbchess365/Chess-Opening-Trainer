@@ -4,6 +4,51 @@ import type { Move } from '../../core/types';
 import { cardFor, currentStreak, graphOf, stats , openingRepertoires } from '../../state/store';
 import { go } from '../router';
 import { pct } from './Home';
+import { materialSignature } from '../../core/positions';
+import { positions, practiceRuns } from '../../state/store';
+import { MovesChart } from '../MovesChart';
+
+/** Per saved position: attempts, success rate and moves-to-mate over time. */
+function PositionStats() {
+  const rows = positions.value
+    .map((p) => ({ p, runs: practiceRuns.value.filter((r) => r.positionId === p.id) }))
+    .filter((x) => x.runs.length)
+    .sort((a, b) => b.runs.length - a.runs.length);
+  if (!rows.length) return null;
+  return (
+    <div class="card">
+      <h2>Positions</h2>
+      {rows.map(({ p, runs }) => {
+        const ok = runs.filter((r) => r.success);
+        const wins = ok.filter((r) => r.result === 'win');
+        const dtm = [...runs].reverse().find((r) => r.engineDtm)?.engineDtm;
+        const best = wins.length ? Math.min(...wins.map((r) => r.movesTaken)) : null;
+        const last = runs[runs.length - 1];
+        return (
+          <div style="padding:10px 0;border-bottom:1px solid var(--line)">
+            <div class="row" style="cursor:pointer" onClick={() => go(`position/${p.id}`)}>
+              <b class="grow" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{p.title || materialSignature(p.fen)}</b>
+              <span class="small muted">
+                {ok.length}/{runs.length} solved ({Math.round((ok.length / runs.length) * 100)}%)
+              </span>
+            </div>
+            <div class="small muted">
+              Last: {last.success ? '✓' : '✗'} {last.reason}
+              {best !== null ? ` · best ${best} moves` : ''}
+              {dtm ? ` · engine ${dtm}` : ''}
+            </div>
+            {p.goal === 'win' && wins.length >= 2 && (
+              <>
+                <div class="small" style="margin-top:6px">Moves to mate per successful attempt</div>
+                <MovesChart points={wins.map((r) => ({ value: r.movesTaken, at: r.finishedAt, hints: r.hintsUsed }))} reference={dtm} />
+              </>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export function Stats() {
   const missed: { m: Move; wrong: number; right: number; line: string; rep: string }[] = [];
@@ -59,6 +104,8 @@ export function Stats() {
             </div>
           );
         })}
+
+        <PositionStats />
 
         <div class="card">
           <h2>Most-missed moves</h2>

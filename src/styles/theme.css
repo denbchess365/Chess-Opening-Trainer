@@ -156,3 +156,11 @@ textarea { width: 100%; min-height: 140px; }
 .palette button.on { border-color: var(--accent); background: var(--bg2); }
 .palette button piece { position: absolute; inset: 3px; width: auto; height: auto; transform: none !important; }
 .palette .tool { grid-row: span 1; }
+
+/* Charts: validated single-series line colour per mode (dataviz validator: lightness band + 3:1 contrast) */
+:root { --chart-line: #6fa03f; --chart-ref: #9a968e; }
+:root.light { --chart-line: #5e8c31; --chart-ref: #6b675f; }
+.guide { font-size: 14px; line-height: 1.5; }
+.guide summary { cursor: pointer; font-weight: 700; }
+.guide ol { padding-left: 20px; margin: 8px 0; }
+.guide li { margin-bottom: 6px; }

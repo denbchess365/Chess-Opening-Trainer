@@ -15,6 +15,7 @@ import { Board } from '../Board';
 import { confirmDialog } from '../dialogs';
 import { playBad, playGood, playMoveSound } from '../sound';
 import { PlayOutExtras } from '../PlayOutExtras';
+import { KbnGuide } from '../KbnGuide';
 
 
 export interface PlayOutSetup {
@@ -359,6 +360,7 @@ function Game(props: { setup: PlayOutSetup; params: Record<string, string>; onSe
               <button class="btn" onClick={giveUp}>⚑ Give up</button>
             </div>
             <p class="pad small muted">Hints and takebacks count as hints and lower the grade.{hints ? ` Hints used: ${hints}.` : ''}</p>
+            {materialSignature(setup.startFen) === 'KBNvK' && <KbnGuide />}
           </>
         )}
         {over && (

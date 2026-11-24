@@ -6,8 +6,9 @@ Then drill them with spaced repetition (FSRS), the way Chessbook does.
 
 - **No accounts, no ads, no analytics, no server.** Everything is stored on your phone (IndexedDB).
 - **Works offline** after the first visit. The app, the chess engine and the opening book are all cached on the device.
-- **Optional network features**, only when you set them up or press a button. They talk to just two hosts:
-  `lichess.org` (reading your public games) and `api.github.com` (backing up to your own secret Gist).
+- **Optional network features**, only when you set them up or press a button. They talk to three hosts:
+  `lichess.org` (reading your public games), `api.github.com` (backing up to your own secret Gist) and
+  `tablebase.lichess.ovh` (perfect endgame defence during play-outs; can be switched off).
 - Installs to your home screen as an app (a "PWA").
 
 ## Features
@@ -27,6 +28,8 @@ Then drill them with spaced repetition (FSRS), the way Chessbook does.
 - **Stats:** % complete, % mastered and due count for each repertoire, plus your most-missed moves (tap one to drill it).
 - **Review your online games:** sync your Lichess games and see where you left your repertoire,
   which opponent replies surprised you, and how you score with each opening (weakest first).
+- **Positions & endgames:** set up any position (e.g. king + bishop + knight vs king), play it out
+  against the engine, or build and drill lines from it. Spaced repetition included.
 - **Backups:** automatic backups to a secret GitHub Gist, local snapshots before risky changes,
   and a manual export to Files / iCloud Drive.
 - **Settings:**
@@ -194,7 +197,75 @@ Every item has a status (new / drilled / added / dismissed), so you won't see th
 If you change your repertoire so that an item is answered, it disappears from the list.
 **Settings → Re-check all games** compares all stored games with your current repertoire again.
 
-## 5. How the drill works
+## 5. Positions & endgame training
+
+Open **Positions** from the Home screen.
+
+### Getting positions in
+- **+ Add → Set up on the board:**
+  - Tap a piece in the palette (white pieces on top, black below), then tap squares to place it.
+    Tap the same piece again to remove it.
+  - **✋** lets you drag pieces (drag one off the board to delete it), and **🗑** erases.
+  - Below the board: **Clear**, **Start position**, **Flip**, side to move, castling rights (only offered
+    when the king and rook are on their home squares) and the en-passant square.
+  - Mistakes are listed in plain words, for example "Black is in check but it's White's move", and
+    **Save** stays disabled until the position is legal.
+- **Paste a FEN**, or **From a PGN**: the main line of the first game, final position by default.
+  Use the slider to pick any move.
+- **💾 Save position** in Build (⋯ menu), in the Lichess review and on the analysis board.
+- **⧉ Duplicate & edit** copies a saved position into the editor. Change a piece or two and save it as
+  a new position, for example the same KBN setup with the defending king somewhere else.
+- **Collections, tags and a note:** group positions ("KBN mates", "Rook endgames", …) and filter by
+  collection, tag, goal or material (e.g. `KBNvK`).
+- Every position has a **goal** (win by mate, hold the draw, or find the best move), the side you play,
+  and how it's practised: **⚔︎ Play it out**, **📖 Drill lines**, or both.
+
+### ⚔︎ Play it out against the engine
+- **Where:** from a saved position, from any position in Build (⚔︎ next to the move buttons), from a
+  drill (from the position after your last answer; the drill waits for you), from the Lichess review,
+  or from the analysis board. If the position isn't saved, you pick the goal.
+- **How the engine defends:** at full strength. With 7 or fewer pieces it uses the **Lichess tablebase**
+  when you're online (Settings → Positions; on by default), which gives perfect defence and the exact
+  mate distance. Offline, or with the tablebase off, it uses Stockfish, searching deeper with 5 or
+  fewer pieces.
+- **Rules:**
+  - **Win:** only checkmate counts. Stalemate, the 50-move rule, threefold repetition and losing the
+    material needed to mate are fails, each with a clear message. So is a move that turns a forced
+    mate into an evaluation below +2.
+  - **Draw:** you succeed with stalemate, threefold repetition, insufficient material or the 50-move rule.
+    Getting mated is a fail.
+  - **Best move:** one move. The engine's move counts, and so does any move that keeps the mate or
+    loses at most 0.3 pawns.
+- **On screen:** a move counter and a 50-move counter, **💡 Hint** (an arrow), **↶ Takeback**,
+  **⟲ Restart** and **⚑ Give up**. Hints and takebacks lower the grade.
+- **Move feedback** (after each move, at the end, or off) tells you gently if your move made the mate
+  noticeably longer or threw the win away.
+- **At the end:**
+  - the result, your number of moves vs. the engine's mate distance, and the hints used
+  - **Review game**, to step through the moves with evaluation notes
+  - **💾 Save the starting position**, if it isn't saved yet
+  - **📖 Add my moves as a line**, which turns the game into a line you can drill
+- **Grading:** a clean success is Good. Success with hints, or with many more moves than the engine
+  needs (more than its mate distance + max(3, 25%)), is Hard. A fail is Again.
+
+### 📖 Drill lines from a position
+Lines from a position work exactly like your openings, but start at the position.
+- **📖 Build lines** opens Build at the position, with the engine panel, book-free.
+- **🎯 Drill lines** quizzes your moves, and the opponent's moves play automatically.
+
+### Practice & scheduling
+- Every saved position you play out has its own spaced-repetition card, and every move of yours in
+  its lines is a card too.
+- **Daily practice** mixes in due positions (Settings → Positions: on/off and a 90/10 … 50/50 mix). If
+  either side doesn't have enough due items, the other fills in. The lines are drilled first, then the
+  positions are played out.
+- **Practice positions** (on the Positions screen) lets you choose a collection, play-outs and/or lines,
+  and due-only or everything.
+- **Stats** shows each position's success rate, and for wins a chart of how many moves you needed
+  over time against the engine's mate distance.
+- A short **bishop + knight mating guide** appears with KBN positions.
+
+## 6. How the drill works
 
 - Each of your **main moves** is a card. New cards are due right away.
 - In a session the app plays a whole line from the starting position. It plays your opponent's
@@ -215,7 +286,7 @@ If you change your repertoire so that an item is answered, it disappears from th
 ```bash
 npm install
 npm run dev        # local dev server
-npm test           # unit tests (tree, scheduler, practice, PGN, backups, Gist client, Lichess, game review)
+npm test           # unit tests (tree, scheduler, practice, PGN, backups, Gist, Lichess, review, positions, play-outs)
 npm run build      # production build in dist/ (also regenerates the opening book JSON)
 npm run preview    # serve dist/ locally
 ```
@@ -245,10 +316,12 @@ Design notes:
 - **Data safety:** the database has a schema version, and upgrades only add data. Backups record
   the schema version, and older backups are upgraded when you import them.
 - **Network & privacy:** see [SPEC.md](SPEC.md). In short:
-  - A Content Security Policy only allows requests to `lichess.org` and `api.github.com`, and blocks inline scripts.
+  - A Content Security Policy only allows requests to `lichess.org`, `api.github.com` and
+    `tablebase.lichess.ovh`, and blocks inline scripts.
   - The service worker never touches or caches those requests.
   - All text from Lichess is rendered as plain text (no HTML injection).
   - The GitHub client refuses to send the token anywhere except `api.github.com`.
+  - The optional tablebase (`tablebase.lichess.ovh`) only receives the position, one request at a time.
 - `npm audit` reports moderate advisories in `glob`/`minimatch`. They come from Workbox's
   build tooling, run only at build time, and never ship in the app.
 
