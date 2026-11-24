@@ -70,11 +70,17 @@ export function Board(props: BoardProps) {
         },
       },
     });
-    const ro = new ResizeObserver(() => api.current?.redrawAll());
+    // Redraw on resize, but never for a detached or zero-size board (that yields NaN arrow coordinates).
+    const ro = new ResizeObserver(() => {
+      const e = el.current;
+      if (e?.isConnected && e.offsetWidth > 0) api.current?.redrawAll();
+    });
     ro.observe(el.current!);
     return () => {
       ro.disconnect();
+      api.current?.setAutoShapes([]);
       api.current?.destroy();
+      api.current = null;
     };
   }, []);
 

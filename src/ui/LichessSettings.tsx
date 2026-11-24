@@ -5,6 +5,7 @@ import { testLichess } from '../net/lichessClient';
 import { relTime } from '../state/gistBackup';
 import { syncGames, syncing, syncProgress, syncState } from '../state/lichessSync';
 import { lichessGames, lichessSettings, updateLichessSettings } from '../state/store';
+import { reanalyzeAll } from '../state/review';
 import { confirmDialog, toast } from './dialogs';
 
 export function useNow(ms = 1000) {
@@ -140,6 +141,14 @@ export function LichessSettings() {
           {busy ? 'Testing…' : 'Test connection'}
         </button>
       </div>
+      <button
+        class="btn small ghost block"
+        style="margin-top:6px"
+        disabled={!mine}
+        onClick={async () => toast(`Re-checked ${await reanalyzeAll()} games against your repertoire`)}
+      >
+        Re-check all games against my repertoire
+      </button>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { signal } from '@preact/signals';
 
 export interface Route {
-  name: 'home' | 'build' | 'practice' | 'stats' | 'settings';
+  name: 'home' | 'build' | 'practice' | 'stats' | 'settings' | 'review';
   params: Record<string, string>;
 }
 
@@ -11,7 +11,7 @@ function parse(): Route {
   const [name, id] = path.split('/');
   const params: Record<string, string> = Object.fromEntries(new URLSearchParams(query));
   if (id) params.id = decodeURIComponent(id);
-  const valid = ['build', 'practice', 'stats', 'settings'];
+  const valid = ['build', 'practice', 'stats', 'settings', 'review'];
   return { name: (valid.includes(name) ? name : 'home') as Route['name'], params };
 }
 

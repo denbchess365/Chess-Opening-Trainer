@@ -7,13 +7,18 @@ import { Home } from './ui/screens/Home';
 import { Practice } from './ui/screens/Practice';
 import { Settings } from './ui/screens/Settings';
 import { Stats } from './ui/screens/Stats';
+import { Review } from './ui/screens/Review';
 import { unlockAudioOnGesture } from './ui/sound';
 import { installAutoBackupTriggers } from './state/gistBackup';
 import { maybeAutoSync } from './state/lichessSync';
+import { analyzePending } from './state/review';
 
 export function App() {
   useEffect(() => {
-    init().then(maybeAutoSync);
+    init().then(() => {
+      analyzePending();
+      maybeAutoSync();
+    });
     unlockAudioOnGesture();
     installAutoBackupTriggers();
   }, []);
@@ -34,10 +39,13 @@ export function App() {
   let screen;
   switch (r.name) {
     case 'build':
-      screen = <Build key={r.params.id} repId={r.params.id} />;
+      screen = <Build key={r.params.id + (r.params.line ?? '')} repId={r.params.id} line={r.params.line} />;
       break;
     case 'practice':
       screen = <Practice key={location.hash} params={r.params} />;
+      break;
+    case 'review':
+      screen = <Review key={location.hash} params={r.params} />;
       break;
     case 'stats':
       screen = <Stats />;

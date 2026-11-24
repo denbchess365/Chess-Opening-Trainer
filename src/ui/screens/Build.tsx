@@ -4,7 +4,6 @@ import { findGaps } from '../../core/tree';
 import type { Move } from '../../core/types';
 import {
   addLine,
-  addMove,
   deleteCount,
   deleteMove,
   graphOf,
@@ -31,12 +30,28 @@ export function moveToPlayed(m: Move): PlayedMove {
 /** Remembers where you were in each repertoire while the app is open. */
 const memory = new Map<string, { path: PlayedMove[]; cursor: number }>();
 
-export function Build(props: { repId: string; fen?: string }) {
+/** Replays a comma-separated list of UCI moves from the start (used to open a position from a game). */
+function pathFromUci(line: string | undefined): PlayedMove[] | null {
+  if (!line) return null;
+  const out: PlayedMove[] = [];
+  let f = ROOT;
+  for (const uci of line.split(',').slice(0, 300)) {
+    if (!/^[a-h][1-8][a-h][1-8][qrbn]?$/.test(uci)) return null;
+    const p = playMove(f, { from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] });
+    if (!p) return null;
+    out.push(p);
+    f = p.toFen;
+  }
+  return out;
+}
+
+export function Build(props: { repId: string; fen?: string; line?: string }) {
   const rep = repertoireById(props.repId);
   const g = graphOf(props.repId);
   const remembered = memory.get(props.repId);
-  const [path, setPath] = useState<PlayedMove[]>(remembered?.path ?? []);
-  const [cursor, setCursor] = useState(remembered?.cursor ?? 0);
+  const fromGame = pathFromUci(props.line);
+  const [path, setPath] = useState<PlayedMove[]>(fromGame ?? remembered?.path ?? []);
+  const [cursor, setCursor] = useState(fromGame ? fromGame.length : (remembered?.cursor ?? 0));
   const [flipped, setFlipped] = useState(false);
   const [tab, setTab] = useState<'moves' | 'book' | 'gaps'>('moves');
   const bk = useBook();
@@ -78,7 +93,9 @@ export function Build(props: { repId: string; fen?: string }) {
     setPath([...path.slice(0, cursor), p]);
     setCursor(cursor + 1);
     if (settings.value.autoSave && !g.findByUci(p.fromFen, p.uci)) {
-      const m = await addMove(rep!.id, p);
+      // Save the whole line up to here, so moves opened from a game (shown as unsaved) become reachable.
+      const saved = await addLine(rep!.id, [...path.slice(0, cursor), p]);
+      const m = saved[saved.length - 1];
       if (m.isMine && !m.isPrimary)
         toast(`Saved ${m.san} as an alternative (not drilled). Tap ⋯ on it to make it your main move.`, 4000);
     }
